@@ -11,6 +11,7 @@ edges_path = stp.CNTRS_OUTPUT_PATH + 'edges.jpg'
 green_edges_path = stp.CNTRS_OUTPUT_PATH + 'green_edges.jpg'
 
 img_name = stp.BEFORE_FRET + stp.IMG_NAME
+print('test1')
 
 img = cv.imread(img_name, cv.IMREAD_GRAYSCALE)
 img = cv.resize(src=img, dsize=None, fx=0.05, fy=0.05, interpolation=cv.INTER_AREA)
@@ -34,5 +35,7 @@ img_green_edges = cv.addWeighted(img_rgb, 0.25, img_rgb_edges, 0.75, 0)
 cv.imwrite(edges_path, img_edges)
 cv.imwrite(green_edges_path, img_green_edges)
 
+
+print("test2")
 
 
