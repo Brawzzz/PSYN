@@ -1,5 +1,4 @@
 import cv2 as cv
 import matplotlib.pyplot as plt
-
-
-print("Hello World !")
+import setup as stp
+import numpy as np
