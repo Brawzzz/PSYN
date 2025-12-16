@@ -29,7 +29,7 @@ BLUE    = (255, 0, 0)
 #---------- PARAMS   ----------#
 AUTO_DETECTION = False
 
-TH_MIN = 0
+TH_MIN = 118
 TH_MAX = 255
 
 ALPHA_X = 10
