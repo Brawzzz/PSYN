@@ -1,55 +1,13 @@
 import colorsys
+import numpy as np
+import cv2 as cv
+import setup as stp
 
+#----------------
 def is_pow_2(n):
     return((n and (n-1)) == 0)
 
-def compute_row_col(n):
-
-    if(n == 2):
-        n_row = 2
-        n_col = 1
-        return (n_row, n_col)
-    
-    n_row = 2
-    n_col = int(n / n_row)
-
-    while(n_col % 2 == 0 and n_col > 4):
-
-        n_row *= 2
-        n_col = int(n_col / 2)        
-
-        print(n_row, n_col)
-
-    return(n_row, n_col)
-
-def split_image(img, nb_split=2):
-
-    img_list = []
-    
-    if(not is_pow_2(nb_split)):
-
-        print("***** WARNING *****")
-        print(f"nb_split must be a power of two : nb_split = {nb_split}")
-        print("*******************")
-
-        return img_list
-
-    img_w, img_h = img.shape[:2]
-
-    (n_row, n_col) = compute_row_col(nb_split) 
-
-    # for i in range(n_row):
-
-    #     img_list.append(img_i)
-
-    return img_list
-
-def join_image(img_list):
-
-    img = 0
-
-    return img
-
+#----------------
 def generate_colors(n):
 
     colors = []
@@ -66,19 +24,28 @@ def generate_colors(n):
         
     return colors
 
+#----------------
+def angle_color(angle : float):
 
+    normalize_angle = (angle % 360)
+    hue = int(normalize_angle / 2)
+    hsv = np.uint8([[[hue, 255, 255]]])
+
+    bgr = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)[0][0]
+
+    return (int(bgr[2]), int(bgr[1]), int(bgr[0]))
+
+#----------------
+def img_empty(img):
+
+    if img is None:
+        return True
+    
+    if img.size == 0:
+        return True
+        
+    return False
+
+#----------------
 def f_pass(x):
     pass
-
-
-nb_split = 2
-
-for i in range(8):
-
-    (n_row, n_col) = compute_row_col(nb_split) 
-    print(f"nb_split = {nb_split}")
-    print(f"n_row = {n_row}")
-    print(f"n_col = {n_col}\n")
-
-    nb_split += 2
-

@@ -19,6 +19,10 @@ IMG_EXTENSION = ".bmp"
 
 IMG_NAME = "hxtl_p" + SAMPLE_INDEX + SUFFIXE + IMG_EXTENSION
 
+# ----------------------------- DATA BASE ----------------------------%
+SPLIT_PATH = OUTPUT_PATH + "split_images/"
+RECON_PATH = OUTPUT_PATH + "recon_images/"
+
 #--------------------------------------------------------------------------------------------------------------------#
 #----------------------------------------------------- CONSTANT -----------------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------------#
@@ -32,21 +36,7 @@ AUTO_DETECTION = False
 TH_MIN = 118
 TH_MAX = 255
 
-ALPHA_X = 10
-ALPHA_Y = 10
-
-if(AUTO_DETECTION):
-    THLD_CONTOURS_LEN = 195
-else:
-    THLD_CONTOURS_LEN = 500
-
-X0 = 2200
-Y0 = 300
-W_W = 2000
-W_H = 800
-
-RECT_SIZE_HORIZONTALE = 150
-RECT_SIZE_VERTICALE = 90
-
 MIN_AREA = 500
 DELTA = 10
+
+CNTRS_LEN_MIN = 25 
