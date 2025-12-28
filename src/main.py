@@ -29,7 +29,7 @@ import Fiber
 
 import setup as stp
 
-from fiber_detection import detect_fibers
+from process import detect_fibers
 
 
 #----------------------------------------------------------------------------------------------#
