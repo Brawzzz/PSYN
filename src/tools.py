@@ -1,13 +1,21 @@
+#----------------------------------------------------------------------------------------------#
+#------------------------------------------- IMPORT -------------------------------------------#
+#----------------------------------------------------------------------------------------------#
+import os
 import colorsys
+import json
 import numpy as np
 import cv2 as cv
 import setup as stp
 
-#----------------
+
+#----------------------------------------------------------------------------------------------#
+#------------------------------------------ FUNCTION ------------------------------------------#
+#----------------------------------------------------------------------------------------------#
 def is_pow_2(n):
     return((n and (n-1)) == 0)
 
-#----------------
+#--------------------------------------------------------------------------------#
 def generate_colors(n):
 
     colors = []
@@ -24,18 +32,40 @@ def generate_colors(n):
         
     return colors
 
-#----------------
-def angle_color(angle : float):
+#--------------------------------------------------------------------------------#
+def angle_color(angle : float, config_path : str = None):
 
-    normalize_angle = (angle % 360)
-    hue = int(normalize_angle / 2)
-    hsv = np.uint8([[[hue, 255, 255]]])
+    if(config_path):
 
-    bgr = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)[0][0]
+        if(os.path.exists(config_path)):
+            
+            with open(config_path, "r") as f:
+                config = json.load(f)
+            
+            angle = angle % 180
+            ranges = config.get("ranges", [])
 
-    return (int(bgr[2]), int(bgr[1]), int(bgr[0]))
+            for item in ranges:
+                if item["min"] <= angle <= item["max"]:
+                    return tuple(item["color"])
 
-#----------------
+            return tuple(config.get("default_color", [128, 128, 128]))
+        
+        else:
+            print(f"{config_path} : No such file or directory")
+            return
+        
+    else:
+
+        normalize_angle = (angle % 360)
+        hue = int(normalize_angle / 2)
+        hsv = np.uint8([[[hue, 255, 255]]])
+
+        bgr = cv.cvtColor(hsv, cv.COLOR_HSV2RGB)[0][0]
+
+        return (int(bgr[0]), int(bgr[1]), int(bgr[1]))
+
+#--------------------------------------------------------------------------------#
 def img_empty(img):
 
     if img is None:
@@ -46,6 +76,67 @@ def img_empty(img):
         
     return False
 
-#----------------
+#--------------------------------------------------------------------------------#
 def f_pass(x):
     pass
+
+#--------------------------------------------------------------------------------#
+def interactive_th(img_blur, f_pass=f_pass):
+    
+    cv.namedWindow('Thresh settings')
+    cv.createTrackbar('Thresh', 'Thresh settings', 100, 255, f_pass)
+
+    while True:
+
+        thresh_val = cv.getTrackbarPos('Thresh', 'Thresh settings')
+        (ret, img_bw )= cv.threshold(img_blur, thresh_val, stp.TH_MAX, cv.THRESH_TOZERO)
+        cv.imshow('Thresh settings', img_bw)
+        
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cv.destroyAllWindows()
+    print(f"Selecterd value for thresh : {thresh_val}")
+
+    return(thresh_val, img_bw)
+
+#--------------------------------------------------------------------------------#
+def make_color_config():
+
+    if(180 % int(stp.DELTA_ANGLE) != 0):
+        return
+
+    step = int(stp.DELTA_ANGLE)
+    nb_color = int(180 / step)
+    
+    config_list = []
+    colors = generate_colors(nb_color)
+
+    index = 0
+    for i in range(0, 180, step):
+
+        config = {
+            "min": i,
+            "max": i + step,
+            "color": colors[index],
+        }
+
+        config_list.append(config)
+        index += 1
+
+    with open("./config/color_config.json", "w", encoding="utf-8") as f:
+        
+        final_json = {
+            "description": "Color Config",
+            "step": step,
+            "ranges": config_list
+        }
+        
+        json.dump(final_json, f, indent=4)
+
+#----------------------------------------------------------------------------------------------#
+#------------------------------------------- MAIN ---------------------------------------------#
+#----------------------------------------------------------------------------------------------#
+if __name__ == "__main__":
+    make_color_config()
+

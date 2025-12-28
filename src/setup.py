@@ -1,42 +1,52 @@
+import cv2 as cv
+
+
 #--------------------------------------------------------------------------------------------------------------------#
 # ------------------------------------------------------- PATH ------------------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------------#
-DATA_PATH = "./data/"
-OUTPUT_PATH = "./output/"
+DATA_PATH       = "./data/"
+OUTPUT_PATH     = "./output/"
+CONFIG_PATH     = "./config/"
 
-CNTRS_OUTPUT_PATH = OUTPUT_PATH + "countours/"
+SPLIT_PATH      = "split_images/"
+RECON_PATH      = "recon_images/"
+THRESH_PATH     = "thresh_images/"
+REGION_PATH     = "regions_images/"
 
-# ------------------------------ SAMPLE ------------------------------%
-SAMPLE_INDEX = "25"
-SELECTED_SAMPLE = DATA_PATH + "sample_" + SAMPLE_INDEX + "/"
+COLOR_PATH      = CONFIG_PATH + "color_config.json"
 
-AFTER_FRET = SELECTED_SAMPLE + "after_fretting/"
-BEFORE_FRET = SELECTED_SAMPLE + "before_fretting/"
-BIN_MASKS = SELECTED_SAMPLE + "binary_masks/"
-
-SUFFIXE = "_pre"
-IMG_EXTENSION = ".bmp"
-
-IMG_NAME = "hxtl_p" + SAMPLE_INDEX + SUFFIXE + IMG_EXTENSION
-
-# ----------------------------- DATA BASE ----------------------------%
-SPLIT_PATH = OUTPUT_PATH + "split_images/"
-RECON_PATH = OUTPUT_PATH + "recon_images/"
+SAMPLE_INDEX    = "25"
 
 #--------------------------------------------------------------------------------------------------------------------#
 #----------------------------------------------------- CONSTANT -----------------------------------------------------#
 #--------------------------------------------------------------------------------------------------------------------#
-RED     = (0, 0, 255)
-GREEN   = (0, 255, 0)
-BLUE    = (255, 0, 0)
+RED                 = (0, 0, 255)
+GREEN               = (0, 255, 0)
+BLUE                = (255, 0, 0)
 
-#---------- PARAMS   ----------#
-AUTO_DETECTION = False
+DRAW_FIBER          = "_fiber"
+DRAW_SAHPE          = "_shape"
+DRAW_FIBER_SHAPE    = "_fiber_shape"
 
-TH_MIN = 118
-TH_MAX = 255
+SPLIT               = "split_"
+THRESH              = "thresh_"
+REGION              = "region_"
 
-MIN_AREA = 500
-DELTA = 10
+OUTPUT_EXTENSION    = ".png"
 
-CNTRS_LEN_MIN = 25 
+#--------------------------------------------------------------------------------------------------------------------#
+#------------------------------------------------------ PARAMS ------------------------------------------------------#
+#--------------------------------------------------------------------------------------------------------------------#
+TH_MIN          = 100
+TH_MAX          = 255
+KERNEL_SIZE     = (9, 9)
+THRESH_METHOD   = cv.THRESH_BINARY + cv.THRESH_OTSU
+
+DELTA           = 0.01
+DELTA_ANGLE     = 10
+
+CNTRS_LEN_MIN   = 20 
+FIBER_MIN_LEN   = 45
+FIBER_MAX_WIDTH = 12
+
+MIN_REGION_SIZE = 500
