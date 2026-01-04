@@ -3,7 +3,6 @@
 #----------------------------------------------------------------------------------------------#
 import numpy as np
 import cv2 as cv
-import math
 
 import tools
 import setup as stp
@@ -59,8 +58,8 @@ class Fiber:
     def valid_fiber(self) -> bool:
 
         if(len(self.contour) > stp.CNTRS_LEN_MIN and 
-           self.length >= stp.FIBER_MIN_LEN and 
-           self.width <= stp.FIBER_MAX_WIDTH):
+           self.length       >= stp.FIBER_MIN_LEN and 
+           self.width        <= stp.FIBER_MAX_WIDTH):
             return True
         
         return False
@@ -72,9 +71,9 @@ class Fiber:
             raise ValueError(f"draw_fibers() Fiber.py line 63 : img is empty")
         
         if(reg_angle):
-            color = tools.angle_color(reg_angle)
+            color = tools.angle_color(reg_angle, stp.CONFIG_COLOR_PATH)
         else:
-            color = tools.angle_color(self.angle, stp.COLOR_PATH)
+            color = tools.angle_color(self.angle, stp.CONFIG_COLOR_PATH)
 
         cv.drawContours(image=img, contours=[self.contour], 
                         contourIdx=-1, color=color, 
@@ -90,9 +89,9 @@ class Fiber:
         print(f"cnt.len         = {len(self.contour)}")
         print("\n")
 
-#------------------------------------------------------------------------------------#
-#-------------------------------------- STATIC --------------------------------------#
-#------------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------------------#
+#---------------------------------------- STATIC METHOD ---------------------------------------#
+#----------------------------------------------------------------------------------------------#
 @staticmethod
 def fiber_angle(rect):
 
@@ -140,11 +139,10 @@ def sort_fibers(fibers : list[Fiber]) -> list:
             current_angle = current_fib.angle
 
             diff = abs(ref_ang - current_angle)
+            if diff > stp.DIFF_ANGLE:
+                diff = stp.MAX_ANGLE - diff
 
-            if(diff > 90):
-                diff = 180 - diff
-
-            if(diff < stp.DELTA_ANGLE):
+            if(diff <= stp.DELTA_ANGLE):
                 current_regions.append(current_fib)
             else:
                 next_regions.append(current_fib)

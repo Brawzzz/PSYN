@@ -2,16 +2,22 @@
 #------------------------------------------- IMPORT -------------------------------------------#
 #----------------------------------------------------------------------------------------------#
 import os
-import colorsys
+import shutil
 import json
+import colorsys
 import numpy as np
 import cv2 as cv
+
 import setup as stp
 
 
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------ FUNCTION ------------------------------------------#
 #----------------------------------------------------------------------------------------------#
+def f_pass(x):
+    pass
+
+#--------------------------------------------------------------------------------#
 def is_pow_2(n):
     return((n and (n-1)) == 0)
 
@@ -28,7 +34,7 @@ def generate_colors(n):
         
         r, g, b = colorsys.hsv_to_rgb(hue, saturation, lightness)
 
-        colors.append((int(b*255), int(g*255), int(r*255)))
+        colors.append((int(r*255), int(g*255), int(b*255)))
         
     return colors
 
@@ -49,7 +55,7 @@ def angle_color(angle : float, config_path : str = None):
                 if item["min"] <= angle <= item["max"]:
                     return tuple(item["color"])
 
-            return tuple(config.get("default_color", [128, 128, 128]))
+            return tuple(config.get("default_color", [255, 0, 0]))
         
         else:
             print(f"{config_path} : No such file or directory")
@@ -75,10 +81,6 @@ def img_empty(img):
         return True
         
     return False
-
-#--------------------------------------------------------------------------------#
-def f_pass(x):
-    pass
 
 #--------------------------------------------------------------------------------#
 def interactive_th(img_blur, f_pass=f_pass):
@@ -134,6 +136,52 @@ def make_color_config():
         
         json.dump(final_json, f, indent=4)
 
+#--------------------------------------------------------------------------------#
+def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
+
+    for item in os.listdir(folder_path):
+        
+        item_path = os.path.join(folder_path, item)
+
+        try:
+            if os.path.isfile(item_path) or os.path.islink(item_path):
+                os.remove(item_path)
+            
+            elif os.path.isdir(item_path):
+                shutil.rmtree(item_path)
+                
+        except Exception as e:
+            print(f"Impossible dto remove {item_path} : {e}")
+
+#--------------------------------------------------------------------------------#
+def verifiy_folder(folder_path : str, folder_len : int) -> bool:
+
+    if(os.path.exists(folder_path)):
+            
+        if(len(os.listdir(folder_path)) == folder_len):
+            return False
+        else:
+            clear_folder(folder_path)
+            return True
+
+    else:
+        os.makedirs(folder_path, exist_ok=True)
+        return True
+
+
+#--------------------------------------------------------------------------------#
+def shapely_to_opencv(polygon):
+
+    if polygon.is_empty:
+        return None
+
+    (x, y) = polygon.exterior.coords.xy
+
+    points = np.array([ [int(xi), int(yi)] for xi, yi in zip(x, y) ], dtype=np.int32)
+    points = points.reshape((-1, 1, 2))
+
+    return points
+    
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------- MAIN ---------------------------------------------#
 #----------------------------------------------------------------------------------------------#

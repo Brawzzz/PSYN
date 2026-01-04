@@ -27,6 +27,7 @@ import Sample
 import Region 
 import Fiber
 
+import tools
 import setup as stp
 
 from process import detect_fibers
@@ -35,36 +36,35 @@ from process import detect_fibers
 #----------------------------------------------------------------------------------------------#
 #-------------------------------------------- MAIN --------------------------------------------#
 #----------------------------------------------------------------------------------------------#
-sample = Sample.Sample(stp.SAMPLE_INDEX)
-sample.set_path(n_bf=True)
 
-print("\nLoading image .........", end="\r")
-sample.load_img()
-print("Loading image ........... Done")
+tools.make_color_config()
 
-print("Spliting image .......... ", end="\r")
-sample.split(nb_split=8)
-print("Spliting image .......... Done")
-
-print("Thresholding images ..... ", end="\r")
-sample.tresh_img()
-print("Thresholding images ..... Done\n")
-
+sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
 sample.print()
 
-split_index = 0
+nb_split = 10
+for split_index in range(nb_split):
 
-fibers          = detect_fibers(sample, n_split_index=split_index)
-sorted_fibers   = Fiber.sort_fibers(fibers)
+    print(f"\nFinding fibers in split {split_index} ...", end="\r")
+    fibers          = detect_fibers(sample, n_split_index=split_index)
+    sorted_fibers   = Fiber.sort_fibers(fibers)
+    print(f"Finding fibers in split {split_index} ... Done")
 
-print(f"Fiber type found : {len(sorted_fibers)}\n")
+    # print(f"Fiber type found : {len(sorted_fibers)}\n")
 
-split_index_path = sample.split_path + stp.SPLIT + str(split_index) + stp.OUTPUT_EXTENSION
-for i in range(len(sorted_fibers)):
+    invalid_fibers = []
 
-    reg_i = Region.Region(fibers = sorted_fibers[i], 
-                        n_split_index = split_index, 
-                        sample_regions_path = sample.regions_path)
+    split_index_path = sample.split_path + stp.SPLIT_ + str(split_index) + stp.OUTPUT_EXTENSION
+    for i in range(len(sorted_fibers)):
+
+        reg_i = Region.Region(fibers = sorted_fibers[i], 
+                            n_split_index = split_index, 
+                            sample_regions_path = sample.regions_path)
+        
+        reg_i.print()
+        reg_i.save(split_index_path, drawing_method=stp.DRAW_SHAPE)
+
     
-    reg_i.print()
-    reg_i.save(split_index_path)
+
+
+    
