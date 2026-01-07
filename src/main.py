@@ -36,35 +36,47 @@ from process import detect_fibers
 #----------------------------------------------------------------------------------------------#
 #-------------------------------------------- MAIN --------------------------------------------#
 #----------------------------------------------------------------------------------------------#
-
-tools.make_color_config()
+tools.color_config()
 
 sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
 sample.print()
 
-nb_split = 10
+row = 2
+nb_split = row * sample.col
+
 for split_index in range(nb_split):
 
-    print(f"\nFinding fibers in split {split_index} ...", end="\r")
+    print(f"Process split {split_index+1}/{nb_split}", end="\r")
+
     fibers          = detect_fibers(sample, n_split_index=split_index)
     sorted_fibers   = Fiber.sort_fibers(fibers)
-    print(f"Finding fibers in split {split_index} ... Done")
+    
+    split_img_path = sample.split_path + stp.SPLIT_ + str(split_index) + stp.OUTPUT_EXTENSION
+    split_img = cv.imread(split_img_path, cv.IMREAD_COLOR)
 
-    # print(f"Fiber type found : {len(sorted_fibers)}\n")
-
-    invalid_fibers = []
-
-    split_index_path = sample.split_path + stp.SPLIT_ + str(split_index) + stp.OUTPUT_EXTENSION
+    print(f"Process split {split_index+1}/{nb_split}", end="\r")
     for i in range(len(sorted_fibers)):
+
+        img_region = cv.imread(split_img_path, cv.IMREAD_COLOR)
 
         reg_i = Region.Region(fibers = sorted_fibers[i], 
                             n_split_index = split_index, 
                             sample_regions_path = sample.regions_path)
-        
-        reg_i.print()
-        reg_i.save(split_index_path, drawing_method=stp.DRAW_SHAPE)
 
+        reg_i.save(split_img, 
+                   img_region, 
+                   drawing_method=stp.DRAW_SHAPE)
+
+    print(f"Process split {split_index+1}/{nb_split}", end="\r")
     
+    split_img_path = sample.regions_path  + stp.SPLIT_ + str(split_index) + "/" + stp.SPLIT_ + str(split_index) +"_all" + stp.OUTPUT_EXTENSION
+    cv.imwrite(split_img_path, split_img)
+
+    print(f"Process split {split_index+1}/{nb_split}", end="\r")
+
+print("\n\nReconstruction ...", end="\r")
+sample.join(n_row=row)
+print("Reconstruction ... Done\n")   
 
 
     

@@ -34,14 +34,52 @@ class Region :
         if not self.fibers :
             raise ValueError("compute_angle() in Region.py line 23 : self.fibers is empty")
         
-        angles = [fib.angle for fib in self.fibers]
-        return np.mean(angles)
+        angles = np.array([fib.angle for fib in self.fibers])
 
+        # 1. Gestion de la circularité (Si on a un mix proche de 0 et 180)
+        # On décale temporairement les angles > 90 vers les négatifs pour le calcul
+        # Ex: 179 devient -1. Ainsi la médiane de [1, -1] est 0.
+
+        # On détecte si la région traverse la frontière 0/180
+        # (Astuce simple: si l'écart type est énorme, c'est qu'on est sur la frontière)
+        if np.std(angles) > 45: 
+            angles_shifted = np.where(angles > 90, angles - 180, angles)
+            median_val = np.median(angles_shifted)
+            
+            # On remet le résultat entre [0, 180]
+            if median_val < 0:
+                median_val += 180
+            return median_val
+            
+        # 2. Cas standard (pas de frontière 0/180)
+        else:
+            return np.median(angles)
+        # return np.mean(angles)
+
+    #--------------------------------------------------------------------------------#
+    def clean_fibers(self) -> None:
+        
+        coords = np.array([fib.position for fib in self.fibers])
+        dbscan = DBSCAN(eps=stp.DBSCAN_EPS, min_samples=stp.DBSCAN_MIN_SAMPLES, metric='euclidean').fit(coords)
+
+        valid_fibers = []
+        labels = dbscan.labels_
+
+        for fib, label in zip(self.fibers, labels):
+            if label != -1: 
+                valid_fibers.append(fib)
+
+        self.fibers = valid_fibers
+
+        return
+    
     #--------------------------------------------------------------------------------#
     def compute_shape(self):
 
         if(len(self.fibers) == 0):
             raise ValueError(f"compute_shape() Region.py line 41 : fibers is empty")
+
+        self.clean_fibers()
 
         #---------------
         all_contour_points = []
@@ -61,14 +99,35 @@ class Region :
             return shape_polygon
         
         except Exception as e:
-            print(f"Error while computing alphashape: {e}")
-            return None
+            raise ValueError(f"Error while computing alphashape: {e}")
 
     #--------------------------------------------------------------------------------#
     def process_region(self):
 
         return
     
+    #--------------------------------------------------------------------------------#
+    def draw_shape(self, img : np.ndarray) -> None:
+                
+        if self.shape.geom_type == 'Polygon':
+            shape_list = [self.shape]
+        elif self.shape.geom_type == 'MultiPolygon':
+            shape_list = list(self.shape.geoms)
+        else:
+            return
+        
+        #---------------
+        color = tools.angle_color(self.angle, config_path=stp.CONFIG_COLOR_PATH)
+
+        shape_cnt = []
+        
+        for poly in shape_list:
+            cnt = tools.shapely_to_opencv(poly)
+            if cnt is not None:
+                shape_cnt.append(cnt)
+
+        cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
+
     #--------------------------------------------------------------------------------#
     def draw_regions(self, img : np.ndarray, drawing_method : int = stp.DRAW_FIBER) -> None:
 
@@ -82,28 +141,18 @@ class Region :
 
         #---------------
         elif(drawing_method == stp.DRAW_SHAPE):
-            
-            if self.shape.geom_type == 'Polygon':
-                shape_list = [self.shape]
-            elif self.shape.geom_type == 'MultiPolygon':
-                shape_list = list(self.shape.geoms)
-            else:
-                return
-            
-            color = tools.angle_color(self.angle, stp.CONFIG_COLOR_PATH)
 
-            shape_cnt = []
-            
-            for poly in shape_list:
-                cnt = tools.shapely_to_opencv(poly)
-                if cnt is not None:
-                    shape_cnt.append(cnt)
-
-            cv.drawContours(img, shape_cnt, -1, color, thickness=stp.THICKNESS)
-
+            self.draw_shape(img)
+            return
+        
         #---------------
         elif(drawing_method == stp.DRAW_FIBER + stp.DRAW_SHAPE):
-            # fiber and shape
+
+            for fib in self.fibers:
+                fib.draw_fiber(img, reg_angle=self.angle)
+
+            self.draw_shape(img)
+
             return
         
         #---------------
@@ -122,45 +171,29 @@ class Region :
         print("\n")
 
     #--------------------------------------------------------------------------------#
-    def save(self, img_path : str, drawing_method : int = stp.DRAW_FIBER):
+    def save(self, 
+             split_img : np.ndarray, 
+             region_img : np.ndarray,
+             drawing_method : int = stp.DRAW_FIBER):
 
+        if(tools.img_empty(split_img)):
+            raise ValueError(f"save() Region.py line 157 : imgis empty img = {split_img}")
+        
         os.makedirs(self.region_path, exist_ok=True)
 
-        if(os.path.exists(img_path)) :
+        self.draw_regions(region_img, drawing_method=drawing_method)
+        self.draw_regions(split_img, drawing_method=drawing_method)
 
-            img = cv.imread(img_path, cv.IMREAD_COLOR_RGB)
-            self.draw_regions(img, method=drawing_method)
+        if(drawing_method == stp.DRAW_FIBER):
+            img_path = self.region_path + self.name + stp.FIBER_ + stp.OUTPUT_EXTENSION
+        elif(drawing_method == stp.DRAW_SHAPE):
+            img_path = self.region_path + self.name + stp.SHAPE_ + stp.OUTPUT_EXTENSION
+        elif(drawing_method == stp.DRAW_FIBER + stp.DRAW_SHAPE):
+            img_path = self.region_path + self.name + stp.FIBER_SHAPE_ + stp.OUTPUT_EXTENSION
 
-            if(drawing_method == stp.DRAW_FIBER):
-                file_name = self.region_path + self.name + stp.FIBER_ + stp.OUTPUT_EXTENSION
-            elif(drawing_method == stp.DRAW_SHAPE):
-                file_name = self.region_path + self.name + stp.SHAPE_ + stp.OUTPUT_EXTENSION
-            elif(drawing_method == stp.DRAW_FIBER + stp.DRAW_SHAPE):
-                file_name = self.region_path + self.name + stp.FIBER_SHAPE_ + stp.OUTPUT_EXTENSION
-
-            cv.imwrite(file_name, img)
+        cv.imwrite(img_path, region_img)
 
         return
-
-    #--------------------------------------------------------------------------------#
-    def clean_regions(self) -> list[Fiber.Fiber]:
-        
-        coords = np.array([fib.position for fib in self.fibers])
-        dbscan = DBSCAN(eps=stp.DBSCAN_EPS, min_samples=stp.DBSCAN_MIN_SAMPLES, metric='euclidean').fit(coords)
-
-        labels = dbscan.labels_
-        valid_fibers = []
-        invalid_fibers = []
-
-        for fib, label in zip(self.fibers, labels):
-            if label == -1: 
-                invalid_fibers.append(fib)
-            else:
-                valid_fibers.append(fib)
-
-        self.fibers = valid_fibers
-
-        return (invalid_fibers)
 
 #------------------------------------------------------------------------------------#
 #--------------------------------------- MAIN ---------------------------------------#

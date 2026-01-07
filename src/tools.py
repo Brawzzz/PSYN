@@ -52,7 +52,7 @@ def angle_color(angle : float, config_path : str = None):
             ranges = config.get("ranges", [])
 
             for item in ranges:
-                if item["min"] <= angle <= item["max"]:
+                if item["min"] < angle <= item["max"]:
                     return tuple(item["color"])
 
             return tuple(config.get("default_color", [255, 0, 0]))
@@ -60,16 +60,42 @@ def angle_color(angle : float, config_path : str = None):
         else:
             print(f"{config_path} : No such file or directory")
             return
-        
+    
     else:
-
-        normalize_angle = (angle % 360)
-        hue = int(normalize_angle / 2)
+ 
+        hue = int(angle % 180)
         hsv = np.uint8([[[hue, 255, 255]]])
+        bgr_px = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)[0][0]
 
-        bgr = cv.cvtColor(hsv, cv.COLOR_HSV2RGB)[0][0]
+        return (int(bgr_px[0]), int(bgr_px[1]), int(bgr_px[2]))
 
-        return (int(bgr[0]), int(bgr[1]), int(bgr[1]))
+#--------------------------------------------------------------------------------#
+def color_config(n_step : int = stp.DELTA_ANGLE):
+    
+    config_list = []
+
+    #---------------
+    index = 0
+    for i in range(0, 180, n_step):
+
+        config = {
+            "min": i,
+            "max": i + n_step,
+            "color": angle_color((i + i + n_step)/2),
+        }
+
+        config_list.append(config)
+        index += 1
+
+    with open("./config/color_config.json", "w", encoding="utf-8") as f:
+        
+        final_json = {
+            "description": "Color Config",
+            "step": n_step,
+            "ranges": config_list
+        }
+        
+        json.dump(final_json, f, indent=4)
 
 #--------------------------------------------------------------------------------#
 def img_empty(img):
@@ -101,40 +127,6 @@ def interactive_th(img_blur, f_pass=f_pass):
     print(f"Selecterd value for thresh : {thresh_val}")
 
     return(thresh_val, img_bw)
-
-#--------------------------------------------------------------------------------#
-def make_color_config():
-
-    if(180 % int(stp.DELTA_ANGLE) != 0):
-        return
-
-    step = int(stp.DELTA_ANGLE)
-    nb_color = int(180 / step)
-    
-    config_list = []
-    colors = generate_colors(nb_color)
-
-    index = 0
-    for i in range(0, 180, step):
-
-        config = {
-            "min": i,
-            "max": i + step,
-            "color": colors[index],
-        }
-
-        config_list.append(config)
-        index += 1
-
-    with open("./config/color_config.json", "w", encoding="utf-8") as f:
-        
-        final_json = {
-            "description": "Color Config",
-            "step": step,
-            "ranges": config_list
-        }
-        
-        json.dump(final_json, f, indent=4)
 
 #--------------------------------------------------------------------------------#
 def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
@@ -186,5 +178,5 @@ def shapely_to_opencv(polygon):
 #------------------------------------------- MAIN ---------------------------------------------#
 #----------------------------------------------------------------------------------------------#
 if __name__ == "__main__":
-    make_color_config()
+    color_config()
 

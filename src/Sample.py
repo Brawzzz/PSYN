@@ -47,12 +47,13 @@ class Sample :
         self.before_fret = n_bf
 
         if(self.before_fret):
-            self.name = "hxtl_p" + self.id + "_pre.bmp"
-            self.img_path = stp.DATA_PATH + "sample_" + str(self.id) + "/before_fretting/" + self.name
+            self.name       = "hxtl_p" + self.id + "_pre.bmp"
+            self.img_path   = stp.DATA_PATH + "sample_" + str(self.id) + "/before_fretting/" + self.name
         else:
-           self.name = "hxtl_p" + self.id + "_post.bmp"
-           self.img_path = stp.DATA_PATH + "sample_" + str(self.id) + "/after_fretting/" + self.name 
+           self.name        = "hxtl_p" + self.id + "_post.bmp"
+           self.img_path    = stp.DATA_PATH + "sample_" + str(self.id) + "/after_fretting/" + self.name 
         
+        #---------------
         self.name           = os.path.splitext(self.name)[0]
         self.output_path    = self.output_path + self.name + "/"
 
@@ -61,6 +62,7 @@ class Sample :
         self.regions_path   = self.output_path + stp.REGION_PATH
         self.recon_path     = self.output_path + stp.RECON_PATH
 
+        #---------------
         os.makedirs(self.split_path, exist_ok=True)
         os.makedirs(self.thresh_path, exist_ok=True)
         os.makedirs(self.regions_path, exist_ok=True)
@@ -114,6 +116,7 @@ class Sample :
         h_step = img_h // self.row
         w_step = img_w // self.col
 
+        #---------------
         i = 0
         for y in range(self.row):
             for x in range(self.col):
@@ -138,79 +141,105 @@ class Sample :
                 i += 1
 
     #--------------------------------------------------------------------------------#
-    def join(self, type : int = stp.DRAW_FIBER) -> None:
+    def join(self, n_row : int = -1) -> None:
 
-        if (type == stp.DRAW_FIBER):
-            suffix = stp.FIBER_ + stp.OUTPUT_EXTENSION
-        elif (type == stp.DRAW_SHAPE):
-            suffix = stp.SHAPE_ + stp.OUTPUT_EXTENSION
-        elif(type == stp.DRAW_FIBER + stp.DRAW_SHAPE):
-            suffix = stp.FIBER_SHAPE_ + stp.OUTPUT_EXTENSION
-            
+        suffix = "_all" + stp.OUTPUT_EXTENSION           
         recon_name = os.path.join(self.recon_path, self.name + suffix)
 
-        #---------------
         all_split = []
         strip = []
 
-        for i in range(self.nb_split):
+        #---------------
+        if(n_row <= 0):
+            nb_row = self.row
+        else:
+            nb_row = n_row
 
-            pattern = os.path.join(self.regions_path, stp.SPLIT_ + str(i), "**", "*" + suffix)
-            regions_names = glob.glob(pattern, recursive=True)
+        nb_split = self.col * nb_row
+        for i in range(nb_split):
+            
+            folder_name     = stp.SPLIT_ + str(i)
+            file_name       = stp.SPLIT_ + str(i) + suffix
+            split_img_path  = os.path.join(self.regions_path, folder_name, file_name)
 
-            split_i_img = None
-        
-            if not regions_names:
-                split_path = os.path.join(self.split_path, stp.SPLIT_ + str(i) + stp.OUTPUT_EXTENSION)
-                
-                if os.path.exists(split_path):
-                    split_i_img = cv.imread(split_path, cv.IMREAD_COLOR_RGB) 
-                else:
-                    print(f"Warning: Missing split {i}")
-                    continue
+            split_img = None
 
-            else:
+            if os.path.exists(split_img_path):
+                split_img = cv.imread(split_img_path, cv.IMREAD_COLOR)
+            
+            if split_img is None:
+                raise ValueError(f"join() Sample.py line 164  : split_image_{i} do not exit {split_img_path}")
 
-                region_img = cv.imread(regions_names[0], cv.IMREAD_COLOR_RGB)
-                
-                for region_name in regions_names[1:]:
-
-                    split_i_img = cv.imread(region_name, cv.IMREAD_COLOR_RGB)
-                    
-                    if split_i_img.shape == region_img.shape:
-                        split_i_img = cv.bitwise_or(split_i_img, region_img)
-
-            if split_i_img is not None:
-                all_split.append(split_i_img)
+            all_split.append(split_img)
 
         #---------------
-        expected_count = self.row * self.col
-        if len(all_split) != expected_count:
-            raise ValueError(f"Reconstruction error : {len(all_split)} found images on {expected_count} expected")
+        if not all_split:
+            raise ValueError(f"join() Sample.py line 169 : no image found ")
 
-        #---------------
-        for y in range(self.row):
+        for y in range(nb_row):
+
             start_index = y * self.col
             end_index = start_index + self.col
 
-            row_imgs = all_split[start_index:end_index]
-            strip_i = np.hstack(row_imgs)
-            strip.append(strip_i) 
+            row_images = all_split[start_index:end_index]
+            
+            if not row_images:
+                print(f"Erreur reconstruction ligne {y} : liste vide")
+                continue
 
-        img_final = np.vstack(strip)
+            try:
+                strip_i = np.hstack(row_images)
+                strip.append(strip_i)
+            except ValueError as e:
+                print(f"hstack error ligne {y} : {e}")
 
-        cv.imwrite(recon_name, img_final)        
+        if strip:
+            img_join = np.vstack(strip)
+            cv.imwrite(recon_name, img_join)
+        else:
+            raise ValueError(f"join() Sample.py line 199 : vstack error {strip}")
+
+    # #--------------------------------------------------------------------------------#
+    # def join(self, n_row : int = -1) -> None:
+
+    #     suffix = "_all.png"            
+    #     recon_name = os.path.join(self.recon_path, self.name + suffix)
+
+    #     #---------------
+    #     all_split   = []
+    #     strip       = []
+
+    #     pattern = os.path.join(self.regions_path, "**", "*" + suffix)
+    #     split_names = sorted(glob.glob(pattern, recursive=True))
+
+    #     for split_name in split_names:
+    #         split_img = cv.imread(split_name, cv.IMREAD_COLOR)
+    #         all_split.append(split_img)
+
+    #     if(n_row == -1):
+    #         nb_row = self.row
+    #     else:
+    #         nb_row = n_row
+
+    #     #---------------
+    #     for y in range(nb_row):
+
+    #         start_index = y * self.col
+    #         end_index = start_index + self.col
+
+    #         row_images = all_split[start_index:end_index]
+    #         strip_i = np.hstack(row_images)
+    #         strip.append(strip_i) 
+
+    #     img_final = np.vstack(strip)
+
+    #     cv.imwrite(recon_name, img_final)        
     
     #--------------------------------------------------------------------------------#
     def tresh_img(self, 
                   thresh_type : int = stp.THRESH_TYPE,
                   blur_method : int = stp.GAUSSIAN_BLUR,
                   thresh_method : int = stp.CLASSIC_THRESH_METHOD):
-        
-        #---------------
-        sucess = tools.verifiy_folder(self.thresh_path, folder_len=self.nb_split)
-        if(not sucess):
-            return
         
         os.makedirs(self.thresh_path, exist_ok=True)
 
@@ -250,9 +279,9 @@ class Sample :
         print(f"regions_path    : {self.regions_path}")
         print(f"before fret     : {self.before_fret}\n")
 
-        print(f"nb_split        = {self.nb_split}")
+        print(f"split           = {self.nb_split}")
         print(f"(row, col)      = ({self.row}, {self.col})")
-        print(f"#==================================================#")
+        print(f"#==================================================#\n")
 
 
     #--------------------------------------------------------------------------------#

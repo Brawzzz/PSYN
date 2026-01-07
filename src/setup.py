@@ -43,11 +43,11 @@ MIN_COL         = 12
 MIN_ANGLE       = 0
 MAX_ANGLE       = 180
 DIFF_ANGLE      = 90
-DELTA_ANGLE     = 8
+DELTA_ANGLE     = 15
 
 CNTRS_LEN_MIN   = 10
 FIBER_MIN_LEN   = 30
-FIBER_MAX_WIDTH = 10
+FIBER_MAX_WIDTH = 20
 
 MIN_REGION_SIZE = 35
 
@@ -64,18 +64,20 @@ CLASSIC_THRESH_METHOD       = 0
 ADAPTATIVE_THRESH_METHOD    = 1
 
 #-------------- DBSCAN --------------#
-DBSCAN_EPS          = 115
-DBSCAN_MIN_SAMPLES  = 4
+DBSCAN_EPS          = 150
+DBSCAN_MIN_SAMPLES  = 3
 
 #-------------- A-SHAPE -------------#
-ALPHA = 0.004
+ALPHA = 0.0075
 
 #-------------- RENDER --------------#
 DRAW_FIBER          = 1
 DRAW_SHAPE          = 2
 
-FILL_SHAPE          = False
+FILL_SHAPE = False
 if FILL_SHAPE : 
-    THICKNESS = -1 
+    SHAPE_THICKNESS = -1 
 else :  
-    THICKNESS = 5
+    SHAPE_THICKNESS = 5
+
+FIB_THICHNESS = 3
