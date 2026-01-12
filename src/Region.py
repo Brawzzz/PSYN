@@ -100,11 +100,6 @@ class Region :
         
         except Exception as e:
             raise ValueError(f"Error while computing alphashape: {e}")
-
-    #--------------------------------------------------------------------------------#
-    def process_region(self):
-
-        return
     
     #--------------------------------------------------------------------------------#
     def draw_shape(self, img : np.ndarray) -> None:

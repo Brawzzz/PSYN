@@ -7,9 +7,9 @@ import cv2 as cv
 import numpy as np
 
 import tools
-import setup as stp
-import Region as reg
+import Region
 
+import setup as stp
 
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------- CLASS --------------------------------------------#
@@ -197,43 +197,7 @@ class Sample :
             img_join = np.vstack(strip)
             cv.imwrite(recon_name, img_join)
         else:
-            raise ValueError(f"join() Sample.py line 199 : vstack error {strip}")
-
-    # #--------------------------------------------------------------------------------#
-    # def join(self, n_row : int = -1) -> None:
-
-    #     suffix = "_all.png"            
-    #     recon_name = os.path.join(self.recon_path, self.name + suffix)
-
-    #     #---------------
-    #     all_split   = []
-    #     strip       = []
-
-    #     pattern = os.path.join(self.regions_path, "**", "*" + suffix)
-    #     split_names = sorted(glob.glob(pattern, recursive=True))
-
-    #     for split_name in split_names:
-    #         split_img = cv.imread(split_name, cv.IMREAD_COLOR)
-    #         all_split.append(split_img)
-
-    #     if(n_row == -1):
-    #         nb_row = self.row
-    #     else:
-    #         nb_row = n_row
-
-    #     #---------------
-    #     for y in range(nb_row):
-
-    #         start_index = y * self.col
-    #         end_index = start_index + self.col
-
-    #         row_images = all_split[start_index:end_index]
-    #         strip_i = np.hstack(row_images)
-    #         strip.append(strip_i) 
-
-    #     img_final = np.vstack(strip)
-
-    #     cv.imwrite(recon_name, img_final)        
+            raise ValueError(f"join() Sample.py line 199 : vstack error {strip}")    
     
     #--------------------------------------------------------------------------------#
     def tresh_img(self, 
@@ -271,7 +235,7 @@ class Sample :
     #--------------------------------------------------------------------------------#
     def print(self):
 
-        print(f"#================ SAMPLE {self.id} ================#")
+        print(f"#=================== SAMPLE {self.id} ====================#")
         print(f"name            : {self.name}")
         print(f"path            : {self.img_path}")
         print(f"split_path      : {self.split_path}")
@@ -283,11 +247,9 @@ class Sample :
         print(f"(row, col)      = ({self.row}, {self.col})")
         print(f"#==================================================#\n")
 
-
     #--------------------------------------------------------------------------------#
-    def save(self):
-
-        return
+    def save_region(self, region : Region.Region) -> None:
+        self.regions.append(region)
     
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------- STATIC -------------------------------------------#

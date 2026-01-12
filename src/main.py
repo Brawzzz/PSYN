@@ -41,42 +41,47 @@ tools.color_config()
 sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
 sample.print()
 
-row = 2
+#---------------
+row = 1
 nb_split = row * sample.col
 
 for split_index in range(nb_split):
 
-    print(f"Process split {split_index+1}/{nb_split}", end="\r")
+    print(f"Process split {split_index+1}/{nb_split} ...", end="\r")
 
-    fibers          = detect_fibers(sample, n_split_index=split_index)
+    thresh_img_path = sample.thresh_path + stp.THRESH_ + str(split_index) + stp.OUTPUT_EXTENSION   
+
+    fibers          = Fiber.detect_fibers(thresh_img_path)
     sorted_fibers   = Fiber.sort_fibers(fibers)
     
-    split_img_path = sample.split_path + stp.SPLIT_ + str(split_index) + stp.OUTPUT_EXTENSION
-    split_img = cv.imread(split_img_path, cv.IMREAD_COLOR)
+    # split_img_path = sample.split_path + stp.SPLIT_ + str(split_index) + stp.OUTPUT_EXTENSION
+    # split_img = cv.imread(split_img_path, cv.IMREAD_COLOR)
 
-    print(f"Process split {split_index+1}/{nb_split}", end="\r")
+    print(f"Process split {split_index+1}/{nb_split} *..", end="\r")
+
+    #---------------
     for i in range(len(sorted_fibers)):
 
-        img_region = cv.imread(split_img_path, cv.IMREAD_COLOR)
+        # img_region = cv.imread(split_img_path, cv.IMREAD_COLOR)
 
         reg_i = Region.Region(fibers = sorted_fibers[i], 
-                            n_split_index = split_index, 
-                            sample_regions_path = sample.regions_path)
+                              n_split_index = split_index, 
+                              sample_regions_path = sample.regions_path)
+        
+        print(f"Process split {split_index+1}/{nb_split} **.", end="\r")
 
-        reg_i.save(split_img, 
-                   img_region, 
-                   drawing_method=stp.DRAW_SHAPE)
+        # reg_i.save(split_img,img_region, drawing_method=stp.DRAW_SHAPE)
 
-    print(f"Process split {split_index+1}/{nb_split}", end="\r")
-    
-    split_img_path = sample.regions_path  + stp.SPLIT_ + str(split_index) + "/" + stp.SPLIT_ + str(split_index) +"_all" + stp.OUTPUT_EXTENSION
-    cv.imwrite(split_img_path, split_img)
+        sample.save_region(reg_i)
 
-    print(f"Process split {split_index+1}/{nb_split}", end="\r")
+    # split_img_path = sample.regions_path  + stp.SPLIT_ + str(split_index) + "/" + stp.SPLIT_ + str(split_index) +"_all" + stp.OUTPUT_EXTENSION
+    # cv.imwrite(split_img_path, split_img)
 
-print("\n\nReconstruction ...", end="\r")
-sample.join(n_row=row)
-print("Reconstruction ... Done\n")   
+    print(f"Process split {split_index+1}/{nb_split} ***", end="\r")
+
+# print("\n\nReconstruction ...", end="\r")
+# sample.join(n_row=row)
+# print("Reconstruction ... Done\n")   
 
 
     

@@ -7,7 +7,6 @@ import cv2 as cv
 import tools
 import setup as stp
 
-
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------- CLASS --------------------------------------------#
 #----------------------------------------------------------------------------------------------#
@@ -117,42 +116,20 @@ def select_fiber(fibers : list[Fiber]) -> list[Fiber]:
     return selected_fibers
 
 #--------------------------------------------------------------------------------#
-# @staticmethod
-# def sort_fibers(fibers : list[Fiber]) -> list:
+def detect_fibers(thresh_img_path : str) -> list[Fiber] : 
 
-#     if not fibers:
-#         return
+    thresh_img      = cv.imread(thresh_img_path, cv.IMREAD_GRAYSCALE) 
+    (contours, _)   = cv.findContours(thresh_img, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
 
-#     sorted_fibers = []
-#     fibers_cpy = fibers.copy()
+    fibers = []
+    for cnt in contours:
+        
+        fib = Fiber(cnt)
+        fibers.append(fib)
 
-#     while(len(fibers_cpy) > 0) :
+    fibers = select_fiber(fibers)
 
-#         ref_fib = fibers_cpy.pop(0)
-#         ref_ang = ref_fib.angle
-
-#         next_regions = []
-#         current_regions = [ref_fib] 
-#         for i in range(len(fibers_cpy)):
-            
-#             current_fib = fibers_cpy[i]
-#             current_angle = current_fib.angle
-
-#             diff = abs(ref_ang - current_angle)
-#             if diff > stp.DIFF_ANGLE:
-#                 diff = stp.MAX_ANGLE - diff
-
-#             if(diff <= stp.DELTA_ANGLE):
-#                 current_regions.append(current_fib)
-#             else:
-#                 next_regions.append(current_fib)
-
-#         if(len(current_regions) > stp.MIN_REGION_SIZE):
-#             sorted_fibers.append(current_regions) 
-            
-#         fibers_cpy = next_regions    
-            
-#     return sorted_fibers
+    return fibers
 
 #--------------------------------------------------------------------------------#
 @staticmethod
