@@ -1,45 +1,55 @@
-#----------------------------------------------------------------------------------------------#
-#------------------------------------------- IMPORT -------------------------------------------#
-#----------------------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------- IMPORT ----------------------------------------------------------#
+#----------------------------------------------------------------------------------------------------------------------------#
 import os
 import glob
 import cv2 as cv
 import numpy as np
 
-import tools
+import Fiber
 import Region
 
+import tools
 import setup as stp
 
-#----------------------------------------------------------------------------------------------#
-#------------------------------------------- CLASS --------------------------------------------#
-#----------------------------------------------------------------------------------------------#
+#----------------------------------------------------------------------------------------------------------------------------#
+#---------------------------------------------------------- CLASS -----------------------------------------------------------#
+#----------------------------------------------------------------------------------------------------------------------------#
 class Sample :
 
-    def __init__(self, n_id, n_split):
+    def __init__(self, n_id, n_split, n_row_roi : tuple[int, int]):
 
         self.id             = n_id
-        self.img            = None
+        self.name           = ""
+
         self.img_path       = ""  
-        self.name           = "" 
+        self.img            = None
+
         self.before_fret    = None 
 
         self.output_path    = stp.OUTPUT_PATH
+        
+        self.split_path     = ""
+        self.thresh_path    = "" 
+        self.regions_path   = ""  
+        self.recon_path     = "" 
 
         if(n_split % 2 != 0):
             raise ValueError(f"__init__() Sample.py line 29 : nb_split must be even : nb_split = {n_split}")
         
-        self.split_path     = ""
-        self.nb_split       = n_split
-        self.row            = 0
-        self.col            = 0
+        self.nb_split           = n_split
+        (self.row, self.col)    = self.compute_row_col(self.nb_split)
 
-        self.thresh_path    = "" 
+        if((n_row_roi[1] <= self.row) and (n_row_roi[1] > n_row_roi[0])):
+            self.row_roi = n_row_roi 
+        else:
+            self.row_roi = (0, self.row)
+            Warning(f"we could have : {n_row_roi[1]} > {n_row_roi[0]} : default row_roi = (0, {self.row})")
 
-        self.regions        = []
-        self.regions_path   = ""  
+        self.nb_strip      = (self.row_roi[1] - self.row_roi[0])  
+        self.working_split = self.nb_strip  * self.col
 
-        self.recon_path     = "" 
+        self.regions : list[Region.Region] = [] 
 
     #--------------------------------------------------------------------------------#
     def set_path(self, n_bf=True):
@@ -83,30 +93,29 @@ class Sample :
             self.img = cv.imread(self.img_path, cv.IMREAD_GRAYSCALE)
 
     #--------------------------------------------------------------------------------#
-    def compute_row_col(self, n : int):
+    def compute_row_col(self, n : int) -> tuple[int, int]:
 
         if(n <= stp.MIN_COL):
-            self.row = 2
-            self.col = int(n / self.row)
-            return
+
+            row = 2
+            col = int(n / row)
+            return(row, col)
         
         else :
-            self.row = 2
-            self.col = int(n / self.row)
 
-            while(self.col % 2 == 0 and self.col > stp.MIN_COL):
+            row = 2
+            col = int(n / row)
 
-                self.row *= 2
-                self.col = int(self.col / 2)        
+            while(col % 2 == 0 and col > stp.MIN_COL):
 
+                row *= 2
+                col = int(col / 2)        
+
+            return(row, col)
+        
     #--------------------------------------------------------------------------------#
     def split(self):
-        
-        sucess = tools.verifiy_folder(self.split_path, folder_len=self.nb_split)
-        if(not sucess):
-            self.compute_row_col(self.nb_split) 
-            return
-        
+
         if(tools.img_empty(self.img)):
             raise ValueError(f"impossible to split : self.img = {self.img} (is empty) ")
         
@@ -116,9 +125,11 @@ class Sample :
         h_step = img_h // self.row
         w_step = img_w // self.col
 
+        (start_row, end_row) = (self.row_roi[0], self.row_roi[1])
+        
         #---------------
         i = 0
-        for y in range(self.row):
+        for y in range(start_row, end_row):
             for x in range(self.col):
                 
                 y_start = y * h_step
@@ -150,13 +161,7 @@ class Sample :
         strip = []
 
         #---------------
-        if(n_row <= 0):
-            nb_row = self.row
-        else:
-            nb_row = n_row
-
-        nb_split = self.col * nb_row
-        for i in range(nb_split):
+        for i in range(self.working_split):
             
             folder_name     = stp.SPLIT_ + str(i)
             file_name       = stp.SPLIT_ + str(i) + suffix
@@ -176,7 +181,7 @@ class Sample :
         if not all_split:
             raise ValueError(f"join() Sample.py line 169 : no image found ")
 
-        for y in range(nb_row):
+        for y in range(self.nb_strip):
 
             start_index = y * self.col
             end_index = start_index + self.col
@@ -203,7 +208,7 @@ class Sample :
     def tresh_img(self, 
                   thresh_type : int = stp.THRESH_TYPE,
                   blur_method : int = stp.GAUSSIAN_BLUR,
-                  thresh_method : int = stp.CLASSIC_THRESH_METHOD):
+                  thresh_method : int = stp.CLASSIC_THRESH ):
         
         os.makedirs(self.thresh_path, exist_ok=True)
 
@@ -222,42 +227,121 @@ class Sample :
                 img_blur = cv.GaussianBlur(img, stp.KERNEL_SIZE, sigmaX = 0)
 
             #---------------
-            if(thresh_method == stp.GAUSSIAN_BLUR):
+            if(thresh_method == stp.CLASSIC_THRESH ):
                 (ret, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, thresh_type)
             else:
                 (ret, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, thresh_type)
 
+            #---------------
             kernel = cv.getStructuringElement(cv.MORPH_CROSS, (5,5))
             img_bw_clean = cv.morphologyEx(img_bw, cv.MORPH_OPEN, kernel)
 
             cv.imwrite(thresh_img, img_bw_clean)
 
     #--------------------------------------------------------------------------------#
-    def print(self):
+    def process_regions(self):
 
-        print(f"#=================== SAMPLE {self.id} ====================#")
-        print(f"name            : {self.name}")
-        print(f"path            : {self.img_path}")
-        print(f"split_path      : {self.split_path}")
-        print(f"thresh_path     : {self.thresh_path}")
-        print(f"regions_path    : {self.regions_path}")
-        print(f"before fret     : {self.before_fret}\n")
+        thresh_split_names = sorted(glob.glob(self.thresh_path + "*" + stp.OUTPUT_EXTENSION), key=tools.extract_number)
 
-        print(f"split           = {self.nb_split}")
-        print(f"(row, col)      = ({self.row}, {self.col})")
-        print(f"#==================================================#\n")
+        #---------------
+        split_index = 0
+        nb_split = len(thresh_split_names)
+
+        for thresh_split in thresh_split_names:
+            
+            print(f"Process split {split_index+1}/{nb_split} ... ", end="\r")
+
+            fibers          = Fiber.detect_fibers(thresh_split)
+            sorted_fibers   = Fiber.sort_fibers(fibers)
+
+            #---------------
+            for i in range(len(sorted_fibers)):
+
+                reg_i = Region.Region(fibers = sorted_fibers[i], 
+                                    n_split_index = split_index, 
+                                    sample_regions_path = self.regions_path)
+                
+                self.regions.append(reg_i)
+
+            split_index += 1
+        
+        print(f"Process split {split_index}/{nb_split} ... Done\n")
 
     #--------------------------------------------------------------------------------#
-    def save_region(self, region : Region.Region) -> None:
-        self.regions.append(region)
-    
-#----------------------------------------------------------------------------------------------#
-#------------------------------------------- STATIC -------------------------------------------#
-#----------------------------------------------------------------------------------------------#
+    def print(self, region=False):
+
+        if(region):
+            print(f"#=================== SAMPLE {self.id} ====================#\n")
+
+            for reg in self.regions:
+                reg.print()
+
+            print(f"#==================================================#\n")
+
+        else:
+            print(f"#=================== SAMPLE {self.id} ====================#")
+            print(f"name            : {self.name}")
+            print(f"path            : {self.img_path}")
+            print(f"split_path      : {self.split_path}")
+            print(f"thresh_path     : {self.thresh_path}")
+            print(f"regions_path    : {self.regions_path}")
+            print(f"before fret     : {self.before_fret}\n")
+
+            print(f"split           = {self.nb_split}")
+            print(f"(row, col)      = ({self.row}, {self.col})")
+
+            print(f"row_roi         = {self.row_roi}")
+            print(f"#==================================================#\n")
+
+    #--------------------------------------------------------------------------------#
+    def render(self, render_type : int = stp.DRAW_FIBER):
+        
+        prev_split_index = 0
+
+        split_img_path    = self.split_path + stp.SPLIT_ + str(prev_split_index) + stp.OUTPUT_EXTENSION
+        split_img         = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
+
+        print(f"Rendering regions ... ", end="\r")
+
+        #---------------
+        for reg in self.regions:
+
+            split_img_path  = self.split_path + stp.SPLIT_ + str(reg.split_index) + stp.OUTPUT_EXTENSION
+            region_img      = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
+
+            #---------------
+            if(prev_split_index != reg.split_index):
+                
+                suffix          = stp.SPLIT_ + str(prev_split_index)
+                all_img_path    = os.path.join(self.regions_path + suffix, suffix + stp.ALL_REGIONS + stp.OUTPUT_EXTENSION)
+
+                cv.imwrite(all_img_path, split_img)
+
+                split_img        = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
+                prev_split_index = reg.split_index
+
+            #---------------
+            reg.render(all_img      = split_img,
+                       region_img   = region_img,
+                       render_type  = render_type)
+        
+        suffix       = stp.SPLIT_ + str(prev_split_index)
+        all_img_path = os.path.join(self.regions_path + suffix, suffix + stp.ALL_REGIONS + stp.OUTPUT_EXTENSION)
+
+        cv.imwrite(all_img_path, split_img)
+
+        print(f"Rendering regions ... Done\n")
+
+#----------------------------------------------------------------------------------------------------------------------------#
+#------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
+#----------------------------------------------------------------------------------------------------------------------------#
 def init(n_id : int, n_split : int = 8) -> Sample:
 
-    sample = Sample(n_id, n_split=n_split)
+    sample = Sample(n_id, n_split=n_split, n_row_roi=stp.ROW_ROI)
     sample.set_path(n_bf=True)
+
+    tools.clear_folder(sample.split_path)
+    tools.clear_folder(sample.thresh_path)
 
     print("\nLoading image .........", end="\r")
     sample.load_img()
@@ -269,8 +353,8 @@ def init(n_id : int, n_split : int = 8) -> Sample:
 
     print("Thresholding images ..... ", end="\r")
     sample.tresh_img(thresh_type=stp.THRESH_TYPE,
-                    blur_method=stp.GAUSSIAN_BLUR,
-                    thresh_method=stp.CLASSIC_THRESH_METHOD)
+                     blur_method=stp.GAUSSIAN_BLUR,
+                     thresh_method=stp.CLASSIC_THRESH_METHOD)
     print("Thresholding images ..... Done\n")
 
     return sample
