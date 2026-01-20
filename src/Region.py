@@ -17,7 +17,7 @@ import tools
 #----------------------------------------------------------------------------------------------------------------------------#
 class Region :
 
-    def __init__(self, fibers : list[Fiber.Fiber], n_split_index : int, sample_regions_path : str):
+    def __init__(self, fibers : list[Fiber.Fiber], n_split_index : int):
         
         self.split_index    = n_split_index
 
@@ -29,8 +29,7 @@ class Region :
         self.shape          = self.compute_shape()
 
         self.name           = stp.REGION_ + str(int(self.mean_angle))
-        self.region_path    = sample_regions_path + stp.SPLIT_ + str(self.split_index) + "/" + self.name + "/"  
-
+        
     #--------------------------------------------------------------------------------#
     def set_fibers(self, fibers : list[Fiber.Fiber]) -> None:
         
@@ -50,7 +49,8 @@ class Region :
     def compute_angle(self, compute_mean=True):
 
         if not self.fibers :
-            raise ValueError("compute_angle() in Region.py line 23 : self.fibers is empty")
+            Warning("compute_angle() in Region.py line 52 : self.fibers is empty")
+            return -1
         
         angles = np.array([fib.angle for fib in self.fibers])
 
@@ -78,7 +78,8 @@ class Region :
     def compute_shape(self):
 
         if(len(self.fibers) == 0):
-            raise ValueError(f"compute_shape() Region.py line 41 : fibers is empty")
+            Warning("compute_angle() in Region.py line 52 : self.fibers is empty")
+            return []
 
         #---------------
         all_contour_points = []
@@ -100,6 +101,22 @@ class Region :
         except Exception as e:
             raise ValueError(f"Error while computing alphashape: {e}")
     
+    #--------------------------------------------------------------------------------#
+    def add_fiber(self, n_fib : Fiber.Fiber = None, n_fibers : list[Fiber.Fiber] = None):
+
+        if n_fibers :
+            for fib in n_fibers:
+                (self.fibers).append(fib)
+
+        elif n_fib:
+            (self.fibers).append(n_fib)
+
+        else :
+            raise ValueError(f"n_fib and n_fibers are both None : n_fib = {n_fib}, n_fibers = {n_fibers} impossible to add fib")
+        
+        self.mean_angle   = self.compute_angle(compute_mean=True)
+        self.median_angle = self.compute_angle()
+
     #----------------------------------------------------------------------------------------------------------------------------#
     #---------------------------------------------------------- REDER -----------------------------------------------------------#
     #----------------------------------------------------------------------------------------------------------------------------#
@@ -127,56 +144,34 @@ class Region :
     #--------------------------------------------------------------------------------#
     def render_fibers(self, img : np.ndarray) -> None:
 
+        if(len(self.fibers) == 0):
+            return
+        
         for fib in self.fibers:
             fib.render(img, reg_angle=self.mean_angle)
 
     #--------------------------------------------------------------------------------#
-    def draw(self, img : np.ndarray, render_type : int = stp.DRAW_FIBER) -> None:
+    def render(self, img : np.ndarray, render_type : int = stp.DRAW_FIBER) -> np.ndarray:
 
         #---------------
         if(render_type == stp.DRAW_FIBER):
             self.render_fibers(img)
-            return
+            return img
 
         #---------------
         elif(render_type == stp.DRAW_SHAPE):
             self.render_shape(img)
-            return
+            return img
         
         #---------------
         elif(render_type == stp.DRAW_FIBER + stp.DRAW_SHAPE):
             self.render_fibers(img)
             self.render_shape(img)
-            return
+            return img
         
         #---------------
         else:
-            raise ValueError(f"draw() Region.py line : 136 : uknown method value | method = {render_type}")
-    
-    #--------------------------------------------------------------------------------#
-    def render(self, 
-               all_img : np.ndarray, 
-               region_img : np.ndarray,
-               render_type : int = stp.DRAW_FIBER):
-
-        if(tools.img_empty(all_img) or tools.img_empty(region_img)):
-            raise ValueError(f"render() Region.py line 157 : img is empty img = {all_img.shape} or {region_img.shape}")
-        
-        os.makedirs(self.region_path, exist_ok=True)
-
-        self.draw(region_img, render_type=render_type)
-        self.draw(all_img, render_type=render_type)
-
-        if(render_type == stp.DRAW_FIBER):
-            region_img_path = self.region_path + self.name + stp.FIBER_ + stp.OUTPUT_EXTENSION
-
-        elif(render_type == stp.DRAW_SHAPE):
-            region_img_path = self.region_path + self.name + stp.SHAPE_ + stp.OUTPUT_EXTENSION
-
-        elif(render_type == stp.DRAW_FIBER + stp.DRAW_SHAPE):
-            region_img_path = self.region_path + self.name + stp.FIBER_SHAPE_ + stp.OUTPUT_EXTENSION
-
-        cv.imwrite(region_img_path, region_img)
+            raise ValueError(f"render() Region.py line : 136 : uknown method value | method = {render_type}")
     
     #--------------------------------------------------------------------------------#
     def print(self):

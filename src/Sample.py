@@ -2,12 +2,14 @@
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
 #----------------------------------------------------------------------------------------------------------------------------#
 import os
-import glob
 import cv2 as cv
 import numpy as np
+import time
+from tqdm import tqdm
 
 import Fiber
 import Region
+import Split
 
 import tools
 import setup as stp
@@ -25,17 +27,14 @@ class Sample :
         self.img_path       = ""  
         self.img            = None
 
-        self.before_fret    = None 
-
         self.output_path    = stp.OUTPUT_PATH
         
-        self.split_path     = ""
-        self.thresh_path    = "" 
-        self.regions_path   = ""  
-        self.recon_path     = "" 
+        self.before_fret    = None 
 
+        #---------------
         if(n_split % 2 != 0):
-            raise ValueError(f"__init__() Sample.py line 29 : nb_split must be even : nb_split = {n_split}")
+            if(n_split != 1):
+                raise ValueError(f"__init__() Sample.py line 29 : nb_split must be even : nb_split = {n_split}")
         
         self.nb_split           = n_split
         (self.row, self.col)    = self.compute_row_col(self.nb_split)
@@ -49,6 +48,8 @@ class Sample :
         self.nb_strip      = (self.row_roi[1] - self.row_roi[0])  
         self.working_split = self.nb_strip  * self.col
 
+        #---------------
+        self.splits  : list[Split.Split]   = [] 
         self.regions : list[Region.Region] = [] 
 
     #--------------------------------------------------------------------------------#
@@ -67,19 +68,6 @@ class Sample :
         self.name           = os.path.splitext(self.name)[0]
         self.output_path    = self.output_path + self.name + "/"
 
-        self.split_path     = self.output_path + stp.SPLIT_PATH
-        self.thresh_path    = self.output_path + stp.THRESH_PATH
-        self.regions_path   = self.output_path + stp.REGION_PATH
-        self.recon_path     = self.output_path + stp.RECON_PATH
-
-        #---------------
-        os.makedirs(self.split_path, exist_ok=True)
-        os.makedirs(self.thresh_path, exist_ok=True)
-        os.makedirs(self.regions_path, exist_ok=True)
-        os.makedirs(self.recon_path, exist_ok=True)
-
-        tools.clear_folder(self.regions_path)
-
     #--------------------------------------------------------------------------------#
     def load_img(self):
 
@@ -94,8 +82,13 @@ class Sample :
 
     #--------------------------------------------------------------------------------#
     def compute_row_col(self, n : int) -> tuple[int, int]:
-
-        if(n <= stp.MIN_COL):
+        
+        if(n == 1):
+            row = 1
+            col = 1
+            return(row, col)
+        
+        elif(n <= stp.MIN_COL):
 
             row = 2
             col = int(n / row)
@@ -119,6 +112,15 @@ class Sample :
         if(tools.img_empty(self.img)):
             raise ValueError(f"impossible to split : self.img = {self.img} (is empty) ")
         
+        if(self.nb_split <= 1):
+
+            print("Splitting image ... ", end="\r")
+            split_i = Split.Split(n_id=0, sample_path=self.output_path)
+            cv.imwrite(split_i.img_path, self.img)
+            print("Splitting image ... Done")
+
+            return 
+        
         (img_h, img_w) = self.img.shape[:2]
 
         self.compute_row_col(self.nb_split) 
@@ -128,60 +130,60 @@ class Sample :
         (start_row, end_row) = (self.row_roi[0], self.row_roi[1])
         
         #---------------
-        i = 0
-        for y in range(start_row, end_row):
-            for x in range(self.col):
-                
-                y_start = y * h_step
-                y_end = (y + 1) * h_step
+        split_idx = 0
+        total_iterations = (end_row - start_row) * self.col
+        with tqdm(total=total_iterations, desc="Splitting images     ", unit="img") as pbar:
+                                               
+            for y in range(start_row, end_row):
+                for x in range(self.col):
+                    
+                    y_start = y * h_step
+                    y_end = (y + 1) * h_step
 
-                x_start = x * w_step
-                x_end = (x + 1) * w_step
+                    x_start = x * w_step
+                    x_end = (x + 1) * w_step
 
-                if (y == self.row - 1):
-                    y_end = img_h
+                    if (y == self.row - 1):
+                        y_end = img_h
 
-                if (x == self.col - 1):
-                    x_end = img_w
+                    if (x == self.col - 1):
+                        x_end = img_w
 
-                img_xy = self.img[y_start:y_end, x_start:x_end]
-                
-                file_name = self.split_path + stp.SPLIT_ + str(i) + stp.OUTPUT_EXTENSION
-                cv.imwrite(file_name, img_xy)
+                    img_xy = self.img[y_start:y_end, x_start:x_end]
+                    
+                    split_i = Split.Split(n_id=split_idx, sample_path=self.output_path)
+                    self.splits.append(split_i)
 
-                i += 1
+                    cv.imwrite(split_i.img_path, img_xy)
+
+                    split_idx += 1
+                    pbar.update(1)
 
     #--------------------------------------------------------------------------------#
-    def join(self, n_row : int = -1) -> None:
+    def join(self) -> None:
 
         suffix = "_all" + stp.OUTPUT_EXTENSION           
-        recon_name = os.path.join(self.recon_path, self.name + suffix)
+        recon_file = os.path.join(self.output_path, self.name + suffix)
 
+        strip     = []
         all_split = []
-        strip = []
 
-        #---------------
-        for i in range(self.working_split):
-            
-            folder_name     = stp.SPLIT_ + str(i)
-            file_name       = stp.SPLIT_ + str(i) + suffix
-            split_img_path  = os.path.join(self.regions_path, folder_name, file_name)
+        for split in self.splits:
 
-            split_img = None
+            split_img_path = os.path.join(split.regions_dir, split.prefix + suffix)
 
             if os.path.exists(split_img_path):
-                split_img = cv.imread(split_img_path, cv.IMREAD_COLOR)
+                split_img = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
+            else:
+                raise ValueError(f"join() Sample.py line 164 : split_image_{str(split.id)} do not exit : {split_img_path}")
             
-            if split_img is None:
-                raise ValueError(f"join() Sample.py line 164  : split_image_{i} do not exit {split_img_path}")
-
             all_split.append(split_img)
 
         #---------------
         if not all_split:
             raise ValueError(f"join() Sample.py line 169 : no image found ")
 
-        for y in range(self.nb_strip):
+        for y in tqdm(range(self.nb_strip), desc="Join           ", unit="row"):
 
             start_index = y * self.col
             end_index = start_index + self.col
@@ -200,7 +202,8 @@ class Sample :
 
         if strip:
             img_join = np.vstack(strip)
-            cv.imwrite(recon_name, img_join)
+            cv.imwrite(recon_file, img_join)
+
         else:
             raise ValueError(f"join() Sample.py line 199 : vstack error {strip}")    
     
@@ -210,62 +213,62 @@ class Sample :
                   blur_method : int = stp.GAUSSIAN_BLUR,
                   thresh_method : int = stp.CLASSIC_THRESH ):
         
-        os.makedirs(self.thresh_path, exist_ok=True)
-
-        #---------------
-        for i in range(len(os.listdir(self.split_path))):
-
-            split_img   = self.split_path + stp.SPLIT_ + str(i) + stp.OUTPUT_EXTENSION
-            thresh_img  = self.thresh_path + stp.THRESH_ + str(i) + stp.OUTPUT_EXTENSION
-
-            img = cv.imread(split_img, cv.IMREAD_GRAYSCALE)
+        STEPS_LOOP = 2 
+        actions = self.working_split * STEPS_LOOP
+        with tqdm(total=actions, desc="Thresholding images  ", unit="itms") as pbar:
 
             #---------------
-            if(blur_method == stp.GAUSSIAN_BLUR):
-                img_blur = cv.GaussianBlur(img, stp.KERNEL_SIZE, sigmaX = 0)
-            else:
-                img_blur = cv.GaussianBlur(img, stp.KERNEL_SIZE, sigmaX = 0)
+            for i in range(self.working_split):
 
-            #---------------
-            if(thresh_method == stp.CLASSIC_THRESH ):
-                (ret, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, thresh_type)
-            else:
-                (ret, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, thresh_type)
+                split_i = Split.Split(n_id=i, sample_path=self.output_path)
+                img     = cv.imread(split_i.img_path, cv.IMREAD_GRAYSCALE)
 
-            #---------------
-            kernel = cv.getStructuringElement(cv.MORPH_CROSS, (5,5))
-            img_bw_clean = cv.morphologyEx(img_bw, cv.MORPH_OPEN, kernel)
+                #---------------
+                if(blur_method == stp.GAUSSIAN_BLUR):
+                    img_blur = cv.GaussianBlur(img, stp.KERNEL_SIZE, sigmaX = 0)
+                else:
+                    img_blur = cv.GaussianBlur(img, stp.KERNEL_SIZE, sigmaX = 0)
 
-            cv.imwrite(thresh_img, img_bw_clean)
+                pbar.update(1)
+
+                #---------------
+                if(thresh_method == stp.CLASSIC_THRESH ):
+                    (ret, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, thresh_type)
+                else:
+                    (ret, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, thresh_type)
+
+                pbar.update(1)
+
+                #---------------
+                kernel = cv.getStructuringElement(cv.MORPH_CROSS, (5,5))
+                img_bw_clean = cv.morphologyEx(img_bw, cv.MORPH_OPEN, kernel)
+
+                cv.imwrite(split_i.thresh_path, img_bw_clean)
 
     #--------------------------------------------------------------------------------#
     def process_regions(self):
-
-        thresh_split_names = sorted(glob.glob(self.thresh_path + "*" + stp.OUTPUT_EXTENSION), key=tools.extract_number)
-
-        #---------------
-        split_index = 0
-        nb_split = len(thresh_split_names)
-
-        for thresh_split in thresh_split_names:
-            
-            print(f"Process split {split_index+1}/{nb_split} ... ", end="\r")
-
-            fibers          = Fiber.detect_fibers(thresh_split)
-            sorted_fibers   = Fiber.sort_fibers(fibers)
-
-            #---------------
-            for i in range(len(sorted_fibers)):
-
-                reg_i = Region.Region(fibers = sorted_fibers[i], 
-                                    n_split_index = split_index, 
-                                    sample_regions_path = self.regions_path)
-                
-                self.regions.append(reg_i)
-
-            split_index += 1
         
-        print(f"Process split {split_index}/{nb_split} ... Done\n")
+        STEPS_LOOP = 2 
+        actions = self.working_split * STEPS_LOOP
+        with tqdm(total=actions, desc="Process split  ", unit="itm") as pbar:
+            
+            for split_idx in range(self.working_split) :
+                                                        
+                split_i         = Split.Split(n_id=split_idx, sample_path=self.output_path)
+                fibers          = Fiber.detect_fibers(split_i.thresh_path)
+                sorted_fibers   = Fiber.sort_fibers(fibers)
+                
+                pbar.update(1)
+
+                #---------------
+                for i in range(len(sorted_fibers)):
+
+                    reg_i = Region.Region(fibers = sorted_fibers[i], n_split_index = split_idx)
+                    split_i.add_region(reg_i)
+
+                self.splits.append(split_i)
+
+                pbar.update(1)
 
     #--------------------------------------------------------------------------------#
     def print(self, region=False):
@@ -282,55 +285,22 @@ class Sample :
             print(f"#=================== SAMPLE {self.id} ====================#")
             print(f"name            : {self.name}")
             print(f"path            : {self.img_path}")
-            print(f"split_path      : {self.split_path}")
-            print(f"thresh_path     : {self.thresh_path}")
-            print(f"regions_path    : {self.regions_path}")
+            
             print(f"before fret     : {self.before_fret}\n")
 
-            print(f"split           = {self.nb_split}")
+            print(f"nb split        = {self.nb_split}")
             print(f"(row, col)      = ({self.row}, {self.col})")
 
             print(f"row_roi         = {self.row_roi}")
+
+            print(f"splits.len      = {len(self.splits)}")
             print(f"#==================================================#\n")
 
     #--------------------------------------------------------------------------------#
     def render(self, render_type : int = stp.DRAW_FIBER):
-        
-        prev_split_index = 0
 
-        split_img_path    = self.split_path + stp.SPLIT_ + str(prev_split_index) + stp.OUTPUT_EXTENSION
-        split_img         = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
-
-        print(f"Rendering regions ... ", end="\r")
-
-        #---------------
-        for reg in self.regions:
-
-            split_img_path  = self.split_path + stp.SPLIT_ + str(reg.split_index) + stp.OUTPUT_EXTENSION
-            region_img      = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
-
-            #---------------
-            if(prev_split_index != reg.split_index):
-                
-                suffix          = stp.SPLIT_ + str(prev_split_index)
-                all_img_path    = os.path.join(self.regions_path + suffix, suffix + stp.ALL_REGIONS + stp.OUTPUT_EXTENSION)
-
-                cv.imwrite(all_img_path, split_img)
-
-                split_img        = cv.imread(split_img_path, cv.IMREAD_COLOR_BGR)
-                prev_split_index = reg.split_index
-
-            #---------------
-            reg.render(all_img      = split_img,
-                       region_img   = region_img,
-                       render_type  = render_type)
-        
-        suffix       = stp.SPLIT_ + str(prev_split_index)
-        all_img_path = os.path.join(self.regions_path + suffix, suffix + stp.ALL_REGIONS + stp.OUTPUT_EXTENSION)
-
-        cv.imwrite(all_img_path, split_img)
-
-        print(f"Rendering regions ... Done\n")
+        for split in tqdm(self.splits, desc="Rendering      ", unit="img"):
+            split.save()
 
 #----------------------------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
@@ -340,21 +310,17 @@ def init(n_id : int, n_split : int = 8) -> Sample:
     sample = Sample(n_id, n_split=n_split, n_row_roi=stp.ROW_ROI)
     sample.set_path(n_bf=True)
 
-    tools.clear_folder(sample.split_path)
-    tools.clear_folder(sample.thresh_path)
+    tools.clear_folder(sample.output_path)
 
-    print("\nLoading image .........", end="\r")
+    print("\n")
+
     sample.load_img()
-    print("Loading image ........... Done")
-
-    print("Spliting image .......... ", end="\r")
     sample.split()
-    print("Spliting image .......... Done")
 
-    print("Thresholding images ..... ", end="\r")
     sample.tresh_img(thresh_type=stp.THRESH_TYPE,
                      blur_method=stp.GAUSSIAN_BLUR,
-                     thresh_method=stp.CLASSIC_THRESH_METHOD)
-    print("Thresholding images ..... Done\n")
+                     thresh_method=stp.CLASSIC_THRESH)
+
+    print("\n")
 
     return sample

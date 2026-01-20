@@ -146,30 +146,36 @@ def sort_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
     if not fibers:
         return []
     
-    BIN_SIZE        = 1        
+    #---------------
+    BIN_SIZE        = 1       
     SIGMA_SMOOTH    = 2.0    
     MIN_PEAK_HEIGHT = 5   
+    MARGIN_CIRCULAR = stp.DELTA_ANGLE 
 
     #---------------
-    angles  = np.array([fib.angle for fib in fibers])
-    bins    = np.arange(-10, 190, BIN_SIZE)
-    
+    angles          = np.array([fib.angle for fib in fibers])
     angles_extended = list(angles)
+
     for ang in angles:
-        if ang < 10 : 
-            angles_extended.append(ang + 180)
-        elif ang > 170 : 
-            angles_extended.append(ang - 180)
+        if ang < MARGIN_CIRCULAR : 
+            angles_extended.append(ang + stp.MAX_ANGLE)
+        elif ang > stp.MAX_ANGLE - MARGIN_CIRCULAR : 
+            angles_extended.append(ang - stp.MAX_ANGLE)
     
     #---------------
-    (hist, bin_edges)   = np.histogram(angles_extended, bins=bins)
-    hist                = hist.astype(np.float32).reshape(1, -1)
+    bins        = np.arange(-MARGIN_CIRCULAR, stp.MAX_ANGLE + MARGIN_CIRCULAR + BIN_SIZE, BIN_SIZE)
+    (hist, _)   = np.histogram(angles_extended, bins=bins)
+    hist        = hist.astype(np.float32).reshape(1, -1)
 
     k_size      = int(2 * np.ceil(3 * SIGMA_SMOOTH) + 1)
     hist_smooth = cv.GaussianBlur(hist, (k_size, 1), SIGMA_SMOOTH)[0]
-    hist_real   = hist_smooth[10:190]
     
     #---------------
+    start_idx = int(MARGIN_CIRCULAR / BIN_SIZE)
+    end_idx   = start_idx + int(stp.MAX_ANGLE / BIN_SIZE)
+        
+    hist_real = hist_smooth[start_idx : end_idx]    
+    
     peaks_index = []
     for i in range(1, len(hist_real) - 1):
 
@@ -187,7 +193,49 @@ def sort_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
                 peaks_index.append(0)
 
     if not peaks_index:
-        return [] # Ou [fibers] selon votre logique métier
+        return [fibers]
+
+    #---------------
+    peaks_index.sort()
+    
+    merged_peaks = []
+    if peaks_index:
+
+        current_peak = peaks_index[0]
+
+        for i in range(1, len(peaks_index)):
+
+            next_peak = peaks_index[i]
+            
+            d1 = abs(current_peak - next_peak)
+            d2 = stp.MAX_ANGLE - d1
+            d  = min(d1, d2)
+            
+            if d <= stp.DELTA_ANGLE:
+                if hist_real[next_peak] > hist_real[current_peak]:
+                    current_peak = next_peak
+            else:
+                merged_peaks.append(current_peak)
+                current_peak = next_peak
+
+        #---------------
+        if len(merged_peaks) > 0:
+            first = merged_peaks[0]
+
+            d1 = abs(first - current_peak)
+            d2 = stp.MAX_ANGLE - d1
+            d  = min(d1, d2)
+
+            if d <= stp.DELTA_ANGLE:
+                if hist_real[current_peak] > hist_real[first]:
+                    merged_peaks[0] = current_peak
+            else:
+                merged_peaks.append(current_peak)
+                
+        else:
+            merged_peaks.append(current_peak)
+
+        peaks_index = merged_peaks
 
     #---------------
     sorted_groups = {idx : [] for idx in peaks_index}
@@ -202,12 +250,11 @@ def sort_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
         for peak in peaks_index:
             
             d1 = abs(ang - peak)
-            d2 = 180 - d1
+            d2 = stp.MAX_ANGLE - d1
+            d  = min(d1, d2)
             
-            dist = min(d1, d2)
-            
-            if dist < min_dist:
-                min_dist = dist
+            if d < min_dist:
+                min_dist = d
                 best_peak = peak
         
         if(min_dist <= stp.DELTA_ANGLE):
@@ -219,5 +266,5 @@ def sort_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
         group = sorted_groups[peak]
         if len(group) > stp.REGION_MIN_SIZE:
             result.append(group)
-            
+
     return result

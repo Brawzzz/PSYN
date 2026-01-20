@@ -23,8 +23,6 @@ SPLIT_          = "split_"
 THRESH_         = "thresh_"
 REGION_         = "region_"
 
-ALL_REGIONS     = "_all"
-
 CONFIG_COLOR_PATH   = CONFIG_PATH + "color_config.json"
 
 OUTPUT_EXTENSION    = ".png"
@@ -39,8 +37,8 @@ BLUE            = (255, 0, 0)
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------- PARAMS -------------------------------------------#
 #----------------------------------------------------------------------------------------------#
-NB_SPLIT        = 128
-ROW_ROI         = (0, 1)
+NB_SPLIT        = 64
+ROW_ROI         = (0, 8)
 
 MIN_COL         = 12
 
@@ -52,10 +50,10 @@ DELTA_ANGLE     = 15
 CNTRS_LEN_MIN   = 10
 
 FIBER_LEN_MIN   = 30
-FIBER_WIDTH_MAX = 20
+FIBER_WIDTH_MAX = 30
 FIBER_RATIO_MIN = 2
 
-REGION_MIN_SIZE = 35
+REGION_MIN_SIZE = 20
 
 #--------------- BLUR ---------------#
 KERNEL_SIZE     = (9, 9)
@@ -70,8 +68,8 @@ CLASSIC_THRESH      = 0
 ADAPTATIVE_THRESH   = 1
 
 #-------------- DBSCAN --------------#
-DBSCAN_EPS          = 150
-DBSCAN_MIN_SAMPLES  = 3
+DBSCAN_EPS          = 100
+DBSCAN_MIN_SAMPLES  = 5
 
 #-------------- A-SHAPE -------------#
 ALPHA = 0.0075
