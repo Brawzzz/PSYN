@@ -26,7 +26,7 @@ class Region :
         self.mean_angle     = self.compute_angle()
         self.median_angle   = self.compute_angle(compute_mean=False)
 
-        self.shape          = self.compute_shape()
+        self.shape          = []
 
         self.name           = stp.REGION_ + str(int(self.mean_angle))
         
@@ -130,7 +130,7 @@ class Region :
             return
         
         #---------------
-        color = tools.angle_color(self.mean_angle, config_path=stp.CONFIG_COLOR_PATH)
+        color = tools.angle_to_color(self.mean_angle, config_path=stp.CONFIG_COLOR_PATH)
 
         shape_cnt = []
         
@@ -182,9 +182,22 @@ class Region :
         print(f"mean angle       = {self.mean_angle}")
         print(f"median angle     = {self.median_angle}")
 
-        print(f"shape            = {self.shape.geom_type}")
+        # print(f"shape            = {self.shape.geom_type}")
         print(f"fibers.len       = {len(self.fibers)}")
-
-        print(f"region path      : {self.region_path}")
         print(f"#================================#")
         print("\n")
+
+#----------------------------------------------------------------------------------------------------------------------------#
+#----------------------------------------------------- STATICS METHODS ------------------------------------------------------#
+#----------------------------------------------------------------------------------------------------------------------------#
+@staticmethod
+def merge_regions(regions : list[Region]):
+
+    all_fib = []
+    for reg in regions:
+
+        all_fib += reg.fibers
+
+    region_merged = Region(all_fib, n_split_index=-1)
+    
+    return region_merged

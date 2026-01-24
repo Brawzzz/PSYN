@@ -37,52 +37,58 @@ BLUE            = (255, 0, 0)
 #----------------------------------------------------------------------------------------------#
 #------------------------------------------- PARAMS -------------------------------------------#
 #----------------------------------------------------------------------------------------------#
-NB_SPLIT        = 64
-ROW_ROI         = (0, 8)
-
-MIN_COL         = 12
+NB_SPLIT        = 128
 
 MIN_ANGLE       = 0
 MAX_ANGLE       = 180
 MAX_ANGLE_DEV   = 45
-DELTA_ANGLE     = 15
+DELTA_ANGLE     = 8
 
 CNTRS_LEN_MIN   = 10
 
-FIBER_LEN_MIN   = 30
+FIBER_LEN_MIN   = 2
 FIBER_WIDTH_MAX = 30
-FIBER_RATIO_MIN = 2
+FIBER_RATIO_MIN = 3
 
 REGION_MIN_SIZE = 20
 
-#--------------- BLUR ---------------#
-KERNEL_SIZE     = (9, 9)
-GAUSSIAN_BLUR   = 0
-CLASSIC_BLUR    = 1
+#----------------------------- BLUR -----------------------------#
+GAUSSIAN_BLUR   = 1
+BILATERAL_BLUR  = 2
 
-#-------------- THRESH --------------#
+KERNEL_SIZE     = (9, 9)
+
+BILATERAL_D           = 9   
+BILATERAL_SIGMA_COLOR = 50  
+BILATERAL_SIGMA_SPACE = 25
+
+#---------------------------- THRESH ----------------------------#
+CLASSIC_THRESH      = 0
 TH_MIN              = 100
 TH_MAX              = 255
 THRESH_TYPE         = cv.THRESH_BINARY + cv.THRESH_OTSU
-CLASSIC_THRESH      = 0
-ADAPTATIVE_THRESH   = 1
 
-#-------------- DBSCAN --------------#
+ADAPTATIVE_THRESH   = 1
+K_SIZE              = 9
+MAX                 = 255
+C                   = 3
+
+#---------------------------- DBSCAN ----------------------------#
 DBSCAN_EPS          = 100
 DBSCAN_MIN_SAMPLES  = 5
 
-#-------------- A-SHAPE -------------#
-ALPHA = 0.0075
+#---------------------------- A-SHAPE ---------------------------#
+ALPHA = 0.005
 
-#-------------- RENDER --------------#
+#---------------------------- RENDER ----------------------------#
 DRAW_FIBER          = 1
 DRAW_SHAPE          = 2
 
-FILL_SHAPE = False
+FILL_SHAPE = True
 if FILL_SHAPE : 
     SHAPE_THICKNESS = -1 
 else :  
-    SHAPE_THICKNESS = 5
+    SHAPE_THICKNESS = 8
 
 FIB_THICHNESS = 3
 
@@ -102,7 +108,7 @@ RENDER_SHAPE = {
 
 RENDER_FIBER_SHAPE = {
 
-    "id"            : DRAW_FIBER,
+    "id"            : DRAW_FIBER + DRAW_SHAPE,
     "suffix"        : "_fiber_shape",
     "fib_thick"     : FIB_THICHNESS,
     "shape_thick"   : SHAPE_THICKNESS

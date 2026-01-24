@@ -77,9 +77,9 @@ class Fiber:
             raise ValueError(f"render() Fiber.py line 63 : img is empty")
         
         if(reg_angle):
-            color = tools.angle_color(reg_angle, config_path=stp.CONFIG_COLOR_PATH)
+            color = tools.angle_to_color(reg_angle)
         else:
-            color = tools.angle_color(self.angle, config_path=stp.CONFIG_COLOR_PATH)
+            color = tools.angle_to_color(self.angle)
 
         cv.drawContours(image=img, contours=[self.contour], 
                         contourIdx=-1, color=color, 
@@ -96,7 +96,7 @@ class Fiber:
         print("\n")
 
 #----------------------------------------------------------------------------------------------------------------------------#
-#------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
+#----------------------------------------------------- STATICS METHODS ------------------------------------------------------#
 #----------------------------------------------------------------------------------------------------------------------------#
 @staticmethod
 def fiber_angle(rect):
@@ -141,101 +141,13 @@ def detect_fibers(thresh_img_path : str) -> list[Fiber] :
 
 #--------------------------------------------------------------------------------#
 @staticmethod
-def sort_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
+def group_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
 
     if not fibers:
         return []
     
-    #---------------
-    BIN_SIZE        = 1       
-    SIGMA_SMOOTH    = 2.0    
-    MIN_PEAK_HEIGHT = 5   
-    MARGIN_CIRCULAR = stp.DELTA_ANGLE 
-
-    #---------------
-    angles          = np.array([fib.angle for fib in fibers])
-    angles_extended = list(angles)
-
-    for ang in angles:
-        if ang < MARGIN_CIRCULAR : 
-            angles_extended.append(ang + stp.MAX_ANGLE)
-        elif ang > stp.MAX_ANGLE - MARGIN_CIRCULAR : 
-            angles_extended.append(ang - stp.MAX_ANGLE)
-    
-    #---------------
-    bins        = np.arange(-MARGIN_CIRCULAR, stp.MAX_ANGLE + MARGIN_CIRCULAR + BIN_SIZE, BIN_SIZE)
-    (hist, _)   = np.histogram(angles_extended, bins=bins)
-    hist        = hist.astype(np.float32).reshape(1, -1)
-
-    k_size      = int(2 * np.ceil(3 * SIGMA_SMOOTH) + 1)
-    hist_smooth = cv.GaussianBlur(hist, (k_size, 1), SIGMA_SMOOTH)[0]
-    
-    #---------------
-    start_idx = int(MARGIN_CIRCULAR / BIN_SIZE)
-    end_idx   = start_idx + int(stp.MAX_ANGLE / BIN_SIZE)
-        
-    hist_real = hist_smooth[start_idx : end_idx]    
-    
-    peaks_index = []
-    for i in range(1, len(hist_real) - 1):
-
-        if((hist_real[i-1] < hist_real[i]) and (hist_real[i] > hist_real[i+1])):
-
-            if(hist_real[i] > MIN_PEAK_HEIGHT):
-                peaks_index.append(i)
-    
-    if len(hist_real) > 0:
-        
-        if((hist_real[0] > hist_real[1] and hist_real[0] > MIN_PEAK_HEIGHT) or 
-           (hist_real[-1] > hist_real[-2] and hist_real[-1] > MIN_PEAK_HEIGHT)) :
-            
-            if(0 not in peaks_index and 179 not in peaks_index):
-                peaks_index.append(0)
-
-    if not peaks_index:
-        return [fibers]
-
-    #---------------
-    peaks_index.sort()
-    
-    merged_peaks = []
-    if peaks_index:
-
-        current_peak = peaks_index[0]
-
-        for i in range(1, len(peaks_index)):
-
-            next_peak = peaks_index[i]
-            
-            d1 = abs(current_peak - next_peak)
-            d2 = stp.MAX_ANGLE - d1
-            d  = min(d1, d2)
-            
-            if d <= stp.DELTA_ANGLE:
-                if hist_real[next_peak] > hist_real[current_peak]:
-                    current_peak = next_peak
-            else:
-                merged_peaks.append(current_peak)
-                current_peak = next_peak
-
-        #---------------
-        if len(merged_peaks) > 0:
-            first = merged_peaks[0]
-
-            d1 = abs(first - current_peak)
-            d2 = stp.MAX_ANGLE - d1
-            d  = min(d1, d2)
-
-            if d <= stp.DELTA_ANGLE:
-                if hist_real[current_peak] > hist_real[first]:
-                    merged_peaks[0] = current_peak
-            else:
-                merged_peaks.append(current_peak)
-                
-        else:
-            merged_peaks.append(current_peak)
-
-        peaks_index = merged_peaks
+    angles      = np.array([fib.angle for fib in fibers])
+    peaks_index = tools.get_peaks(angles)
 
     #---------------
     sorted_groups = {idx : [] for idx in peaks_index}
@@ -264,6 +176,7 @@ def sort_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
     result = []
     for peak in sorted_groups:
         group = sorted_groups[peak]
+
         if len(group) > stp.REGION_MIN_SIZE:
             result.append(group)
 

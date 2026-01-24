@@ -15,120 +15,34 @@ import setup as stp
 #----------------------------------------------------------------------------------------------------------------------------#
 #-------------------------------------------------------- FUNCTION ----------------------------------------------------------#
 #----------------------------------------------------------------------------------------------------------------------------#
-def f_pass(x):
-    pass
+def angle_to_color(angle : float):
+ 
+    hue = int(angle % 180)
+    hsv = np.uint8([[[hue, 255, 255]]])
+    bgr_px = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)[0][0]
+
+    return (int(bgr_px[0]), int(bgr_px[1]), int(bgr_px[2]))
 
 #--------------------------------------------------------------------------------#
-def is_pow_2(n):
-    return((n and (n-1)) == 0)
-
-#--------------------------------------------------------------------------------#
-def generate_colors(n):
-
-    colors = []
-
-    for i in range(n):
-
-        hue = i / n
-        saturation = 1.0
-        lightness = 1.0
+def get_color(angle : float, config_path : str = stp.CONFIG_COLOR_PATH):
+    
+    if(os.path.exists(config_path)):
         
-        r, g, b = colorsys.hsv_to_rgb(hue, saturation, lightness)
-
-        colors.append((int(r*255), int(g*255), int(b*255)))
+        with open(config_path, "r") as f:
+            config = json.load(f)
         
-    return colors
+        ranges = config.get("ranges", [])
 
-#--------------------------------------------------------------------------------#
-def angle_color(angle : float, config_path : str = None):
+        for item in ranges:
+            if item["min"] < angle <= item["max"]:
+                return tuple(item["color"])
 
-    if(config_path):
-
-        if(os.path.exists(config_path)):
-            
-            with open(config_path, "r") as f:
-                config = json.load(f)
-            
-            angle = angle % 180
-            ranges = config.get("ranges", [])
-
-            for item in ranges:
-                if item["min"] < angle <= item["max"]:
-                    return tuple(item["color"])
-
-            return tuple(config.get("default_color", [255, 0, 0]))
-        
-        else:
-            print(f"{config_path} : No such file or directory")
-            return
+        return tuple(config.get("default_color", [255, 0, 0]))
     
     else:
- 
-        hue = int(angle % 180)
-        hsv = np.uint8([[[hue, 255, 255]]])
-        bgr_px = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)[0][0]
-
-        return (int(bgr_px[0]), int(bgr_px[1]), int(bgr_px[2]))
-
-#--------------------------------------------------------------------------------#
-def color_config(n_step : int = stp.DELTA_ANGLE):
+        print(f"{config_path} : No such file or directory")
+        return
     
-    config_list = []
-
-    #---------------
-    index = 0
-    for i in range(0, 180, n_step):
-
-        config = {
-            "min": i,
-            "max": i + n_step,
-            "color": angle_color((i + i + n_step)/2),
-        }
-
-        config_list.append(config)
-        index += 1
-
-    with open("./config/color_config.json", "w", encoding="utf-8") as f:
-        
-        final_json = {
-            "description": "Color Config",
-            "step": n_step,
-            "ranges": config_list
-        }
-        
-        json.dump(final_json, f, indent=4)
-
-#--------------------------------------------------------------------------------#
-def img_empty(img):
-
-    if img is None:
-        return True
-    
-    if img.size == 0:
-        return True
-        
-    return False
-
-#--------------------------------------------------------------------------------#
-def interactive_th(img_blur, f_pass=f_pass):
-    
-    cv.namedWindow('Thresh settings')
-    cv.createTrackbar('Thresh', 'Thresh settings', 100, 255, f_pass)
-
-    while True:
-
-        thresh_val = cv.getTrackbarPos('Thresh', 'Thresh settings')
-        (ret, img_bw )= cv.threshold(img_blur, thresh_val, stp.TH_MAX, cv.THRESH_TOZERO)
-        cv.imshow('Thresh settings', img_bw)
-        
-        if cv.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cv.destroyAllWindows()
-    print(f"Selecterd value for thresh : {thresh_val}")
-
-    return(thresh_val, img_bw)
-
 #--------------------------------------------------------------------------------#
 def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
 
@@ -166,3 +80,141 @@ def extract_number(path):
         return int(match.group(1)) 
     return 0
 
+#--------------------------------------------------------------------------------#
+def get_peaks(angles : list[float], 
+              min_peak_height = 5, 
+              sigma_smoth = 2.0) -> list[float]:
+    
+    #---------------
+    if len(angles) == 0:
+        return []
+    
+    if(max(angles) > stp.MAX_ANGLE or min(angles) < stp.MIN_ANGLE):
+        Warning(f"max(angles) > {stp.MAX_ANGLE} or min(angles) < {stp.MIN_ANGLE}")
+        return angles
+    
+    #---------------
+    BIN_SIZE        = 1       
+    MARGIN_CIRCULAR = stp.DELTA_ANGLE 
+
+    #---------------
+    angles_extended = list(angles)
+
+    for ang in angles:
+        if ang < MARGIN_CIRCULAR : 
+            angles_extended.append(ang + stp.MAX_ANGLE)
+        elif ang > stp.MAX_ANGLE - MARGIN_CIRCULAR : 
+            angles_extended.append(ang - stp.MAX_ANGLE)
+    
+    #---------------
+    bins        = np.arange(-MARGIN_CIRCULAR, stp.MAX_ANGLE + MARGIN_CIRCULAR + BIN_SIZE, BIN_SIZE)
+    (hist, _)   = np.histogram(angles_extended, bins=bins)
+    hist        = hist.astype(np.float32).reshape(1, -1)
+
+    k_size      = int(2 * np.ceil(3 * sigma_smoth) + 1)
+    hist_smooth = cv.GaussianBlur(hist, (k_size, 1), sigma_smoth)[0]
+    
+    #---------------
+    start_idx = int(MARGIN_CIRCULAR / BIN_SIZE)
+    end_idx   = start_idx + int(stp.MAX_ANGLE / BIN_SIZE)
+
+    hist_real   = hist_smooth[start_idx : end_idx]    
+    peaks_index = []
+
+    for i in range(1, len(hist_real) - 1):
+
+        if((hist_real[i-1] < hist_real[i]) and (hist_real[i] > hist_real[i+1])):
+            if(hist_real[i] > min_peak_height):
+                peaks_index.append(i)
+    
+    if len(hist_real) > 0:
+        
+        if((hist_real[0] > hist_real[1] and hist_real[0] > min_peak_height) or 
+           (hist_real[-1] > hist_real[-2] and hist_real[-1] > min_peak_height)) :
+            
+            if(0 not in peaks_index and 179 not in peaks_index):
+                peaks_index.append(0)
+
+    if not peaks_index:
+        return []
+
+    #---------------
+    peaks_index.sort()
+    
+    merged_peaks = []
+    if peaks_index:
+
+        current_peak = peaks_index[0]
+
+        for i in range(1, len(peaks_index)):
+
+            next_peak = peaks_index[i]
+            
+            d1 = abs(current_peak - next_peak)
+            d2 = stp.MAX_ANGLE - d1
+            d  = min(d1, d2)
+            
+            if d <= stp.DELTA_ANGLE:
+                if hist_real[next_peak] > hist_real[current_peak]:
+                    current_peak = next_peak
+            else:
+                merged_peaks.append(current_peak)
+                current_peak = next_peak
+
+        #---------------
+        if len(merged_peaks) > 0:
+            first = merged_peaks[0]
+
+            d1 = abs(first - current_peak)
+            d2 = stp.MAX_ANGLE - d1
+            d  = min(d1, d2)
+
+            if d <= stp.DELTA_ANGLE:
+                if hist_real[current_peak] > hist_real[first]:
+                    merged_peaks[0] = current_peak
+            else:
+                merged_peaks.append(current_peak)
+                
+        else:
+            merged_peaks.append(current_peak)
+
+        return  merged_peaks
+
+#--------------------------------------------------------------------------------#
+def img_empty(img):
+
+    if img is None:
+        return True
+    
+    if img.size == 0:
+        return True
+        
+    return False
+
+#--------------------------------------------------------------------------------#
+def f_pass(x):
+    pass
+
+#--------------------------------------------------------------------------------#
+def is_pow_2(n):
+    return((n and (n-1)) == 0)
+
+#--------------------------------------------------------------------------------#
+def interactive_th(img_blur, f_pass=f_pass):
+    
+    cv.namedWindow('Thresh settings')
+    cv.createTrackbar('Thresh', 'Thresh settings', 100, 255, f_pass)
+
+    while True:
+
+        thresh_val = cv.getTrackbarPos('Thresh', 'Thresh settings')
+        (ret, img_bw )= cv.threshold(img_blur, thresh_val, stp.TH_MAX, cv.THRESH_TOZERO)
+        cv.imshow('Thresh settings', img_bw)
+        
+        if cv.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cv.destroyAllWindows()
+    print(f"Selecterd value for thresh : {thresh_val}")
+
+    return(thresh_val, img_bw)

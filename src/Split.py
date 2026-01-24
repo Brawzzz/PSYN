@@ -45,57 +45,19 @@ class Split:
         self.img_path = n_render_type
     
     #--------------------------------------------------------------------------------#
-    def add_region(self, n_region : Region.Region):
-        self.regions.append(n_region)
-    
-    #--------------------------------------------------------------------------------#
-    def merge_regions(self, delta = 10):
-    
-        new_regions = []
-
-        merge = False
-        while(not merge):
-
-            print(f"\nregions.len = {len(self.regions)}\n")
-
-            ref_region  = self.regions[0]
-
-            for j in range(1, len(self.regions)):
-                
-                current_reg = self.regions[j]
-                
-                d1 = abs(ref_region.mean_angle - current_reg.mean_angle)
-                d2 = stp.MAX_ANGLE - d1
-                d  = min(d1, d2)
-
-                if(d < delta):
-
-                    fibers = ref_region.fibers + current_reg.fibers
-                    new_reg = Region.Region(fibers, self.id)
-                    new_regions.append(new_reg)
-
-                    merge = True
-                
-                else:
-                    new_regions.append(current_reg)
-            
-            merge = not merge
-            self.regions = new_regions
-
-#--------------------------------------------------------------------------------#
     def print(self):
 
         print(f"#========== SPLIT {self.id} ==========#")
 
-        print(f"nb regions       = {len(self.regions)}\n")
+        print(f"nb regions        = {len(self.regions)}\n")
 
-        print(f"render           = {self.render}\n")
+        print(f"render            = {self.render}\n")
 
         print(f"directory path    : {self.dir_path}\n")
         print(f"regions directory : {self.regions_dir}")
 
-        print(f"image path       : {self.img_path}")
-        print(f"thresh path      : {self.thresh_path}")
+        print(f"image path        : {self.img_path}")
+        print(f"thresh path       : {self.thresh_path}")
         
         print(f"#================================#\n")
 
