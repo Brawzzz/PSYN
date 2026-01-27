@@ -5,7 +5,9 @@ import os
 import cv2 as cv
 import numpy as np
 
-import Region
+from typing import TYPE_CHECKING 
+if TYPE_CHECKING:
+    import Region
 
 import setup as stp
 
@@ -15,12 +17,14 @@ import setup as stp
 #----------------------------------------------------------------------------------------------------------------------------#
 class Split:
 
-    def __init__(self, n_id : int, sample_path : str):
+    def __init__(self, n_id : int, n_origin : tuple[int, int], sample_path : str):
         
         self.id     = n_id
         self.prefix = stp.SPLIT_ + str(self.id)
 
-        self.regions : list[Region.Region] = []
+        self.origin = n_origin
+
+        self.regions : list['Region.Region'] = []
 
         self.render = stp.RENDER_FIBER
 
@@ -62,8 +66,11 @@ class Split:
         print(f"#================================#\n")
 
     #--------------------------------------------------------------------------------#
-    def save(self):
+    def save(self, color_config_path : str):
 
+        if(not os.path.exists(color_config_path)):
+            raise ValueError(f"path do not exist : {color_config_path}")
+        
         render = self.render["id"]
         all_img = cv.imread(self.img_path, cv.IMREAD_COLOR_BGR)
 
@@ -71,8 +78,13 @@ class Split:
 
             region_img = cv.imread(self.img_path, cv.IMREAD_COLOR_BGR)
 
-            reg.render(region_img, render_type=render)
-            reg.render(all_img, render_type=render)
+            reg.render(region_img, 
+                       color_config_path=color_config_path, 
+                       render_type=render)
+            
+            reg.render(all_img, 
+                       color_config_path=color_config_path,
+                       render_type=render)
 
             region_render_path = os.path.join(self.regions_dir, self.prefix + "_" + reg.name + stp.OUTPUT_EXTENSION) 
             cv.imwrite(region_render_path, region_img)

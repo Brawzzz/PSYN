@@ -46,7 +46,7 @@ class Region :
         return valid_fibers
     
     #--------------------------------------------------------------------------------#
-    def compute_angle(self, compute_mean=True):
+    def compute_angle(self, compute_mean=True) -> float:
 
         if not self.fibers :
             Warning("compute_angle() in Region.py line 52 : self.fibers is empty")
@@ -82,11 +82,12 @@ class Region :
             return []
 
         #---------------
+        STEP = 200
         all_contour_points = []
 
         for fib in self.fibers:
             pts = (fib.contour).reshape(-1, 2)
-            all_contour_points.append(pts)
+            all_contour_points.append(pts[::STEP])
 
         if not all_contour_points:
             return None
@@ -97,7 +98,7 @@ class Region :
         try:
             shape_polygon = a_shape.alphashape(points, stp.ALPHA)
             return shape_polygon
-        
+
         except Exception as e:
             raise ValueError(f"Error while computing alphashape: {e}")
     
@@ -120,7 +121,7 @@ class Region :
     #----------------------------------------------------------------------------------------------------------------------------#
     #---------------------------------------------------------- REDER -----------------------------------------------------------#
     #----------------------------------------------------------------------------------------------------------------------------#
-    def render_shape(self, img : np.ndarray) -> None:
+    def render_shape(self, img : np.ndarray, color_config_path : str = None) -> None:
                 
         if self.shape.geom_type == 'Polygon':
             shape_list = [self.shape]
@@ -130,7 +131,13 @@ class Region :
             return
         
         #---------------
-        color = tools.angle_to_color(self.mean_angle, config_path=stp.CONFIG_COLOR_PATH)
+        if(color_config_path != None):
+            if(os.path.exists(color_config_path)):
+                color = tools.get_color(self.mean_angle, config_path=color_config_path)
+            else:
+                raise ValueError(f"{color_config_path} do not exist")
+        else:
+            color = tools.angle_to_color(self.mean_angle)
 
         shape_cnt = []
         
@@ -142,31 +149,35 @@ class Region :
         cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
 
     #--------------------------------------------------------------------------------#
-    def render_fibers(self, img : np.ndarray) -> None:
+    def render_fibers(self, img : np.ndarray, color_config_path : str) -> None:
 
         if(len(self.fibers) == 0):
             return
         
         for fib in self.fibers:
-            fib.render(img, reg_angle=self.mean_angle)
+            fib.render(img, 
+                       reg_angle=self.mean_angle, 
+                       color_config_path=color_config_path)
 
     #--------------------------------------------------------------------------------#
-    def render(self, img : np.ndarray, render_type : int = stp.DRAW_FIBER) -> np.ndarray:
+    def render(self, img : np.ndarray, 
+               color_config_path : str,
+               render_type : int = stp.DRAW_FIBER) -> np.ndarray:
 
         #---------------
         if(render_type == stp.DRAW_FIBER):
-            self.render_fibers(img)
+            self.render_fibers(img, color_config_path)
             return img
 
         #---------------
         elif(render_type == stp.DRAW_SHAPE):
-            self.render_shape(img)
+            self.render_shape(img, color_config_path)
             return img
         
         #---------------
         elif(render_type == stp.DRAW_FIBER + stp.DRAW_SHAPE):
-            self.render_fibers(img)
-            self.render_shape(img)
+            self.render_fibers(img, color_config_path)
+            self.render_shape(img, color_config_path)
             return img
         
         #---------------
@@ -182,7 +193,9 @@ class Region :
         print(f"mean angle       = {self.mean_angle}")
         print(f"median angle     = {self.median_angle}")
 
-        # print(f"shape            = {self.shape.geom_type}")
+        if(self.shape != []):
+            print(f"shape            = {self.shape.geom_type}")
+
         print(f"fibers.len       = {len(self.fibers)}")
         print(f"#================================#")
         print("\n")

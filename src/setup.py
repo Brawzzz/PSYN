@@ -42,15 +42,15 @@ NB_SPLIT        = 128
 MIN_ANGLE       = 0
 MAX_ANGLE       = 180
 MAX_ANGLE_DEV   = 45
-DELTA_ANGLE     = 8
+DELTA_ANGLE     = 5
 
 CNTRS_LEN_MIN   = 10
 
-FIBER_LEN_MIN   = 2
+FIBER_LEN_MIN   = 20
 FIBER_WIDTH_MAX = 30
-FIBER_RATIO_MIN = 3
+FIBER_RATIO_MIN = 2
 
-REGION_MIN_SIZE = 20
+REGION_MIN_SIZE = 75
 
 #----------------------------- BLUR -----------------------------#
 GAUSSIAN_BLUR   = 1
@@ -78,17 +78,17 @@ DBSCAN_EPS          = 100
 DBSCAN_MIN_SAMPLES  = 5
 
 #---------------------------- A-SHAPE ---------------------------#
-ALPHA = 0.005
+ALPHA = 0.001
 
 #---------------------------- RENDER ----------------------------#
 DRAW_FIBER          = 1
 DRAW_SHAPE          = 2
 
-FILL_SHAPE = True
+FILL_SHAPE = False
 if FILL_SHAPE : 
     SHAPE_THICKNESS = -1 
 else :  
-    SHAPE_THICKNESS = 8
+    SHAPE_THICKNESS = 25
 
 FIB_THICHNESS = 3
 

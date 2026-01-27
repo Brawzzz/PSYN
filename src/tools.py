@@ -31,13 +31,25 @@ def get_color(angle : float, config_path : str = stp.CONFIG_COLOR_PATH):
         with open(config_path, "r") as f:
             config = json.load(f)
         
-        ranges = config.get("ranges", [])
+        colors = config.get("colors", [])
 
-        for item in ranges:
-            if item["min"] < angle <= item["max"]:
-                return tuple(item["color"])
+        min_dist = float('inf')
+        best_color = [-1, -1, -1]
 
-        return tuple(config.get("default_color", [255, 0, 0]))
+        for item in colors:
+
+            d1 = abs(item["angle"] - angle)
+            d2 = stp.MAX_ANGLE - d1
+            d  = min(d1, d2)
+
+            if d < min_dist:
+                min_dist = d
+                best_color = item["color"]
+
+        if(best_color == [-1, -1, -1]):
+            return [0, 0, 0]
+        else:
+            return best_color
     
     else:
         print(f"{config_path} : No such file or directory")
@@ -72,13 +84,6 @@ def shapely_to_opencv(polygon):
     points = points.reshape((-1, 1, 2))
 
     return points
-
-#--------------------------------------------------------------------------------#
-def extract_number(path):
-    match = re.search(r'_(\d+)', path)
-    if match:
-        return int(match.group(1)) 
-    return 0
 
 #--------------------------------------------------------------------------------#
 def get_peaks(angles : list[float], 
@@ -190,6 +195,13 @@ def img_empty(img):
         return True
         
     return False
+
+#--------------------------------------------------------------------------------#
+def extract_number(path):
+    match = re.search(r'_(\d+)', path)
+    if match:
+        return int(match.group(1)) 
+    return 0
 
 #--------------------------------------------------------------------------------#
 def f_pass(x):

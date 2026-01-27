@@ -4,8 +4,13 @@
 import numpy as np
 import cv2 as cv
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import Split
+
 import tools
 import setup as stp
+
 
 #----------------------------------------------------------------------------------------------------------------------------#
 #---------------------------------------------------------- CLASS -----------------------------------------------------------#
@@ -62,22 +67,31 @@ class Fiber:
     #--------------------------------------------------------------------------------#
     def valid_fiber(self) -> bool:
 
-        if(self.perimeter   > stp.CNTRS_LEN_MIN 
-           and self.length  >= stp.FIBER_LEN_MIN 
-           and self.width   <= stp.FIBER_WIDTH_MAX 
-           and self.ratio   > stp.FIBER_RATIO_MIN):
+        if(self.perimeter > stp.CNTRS_LEN_MIN and self.length >= stp.FIBER_LEN_MIN and 
+           self.width <= stp.FIBER_WIDTH_MAX and self.ratio > stp.FIBER_RATIO_MIN):
             return True
         
         return False
     
     #--------------------------------------------------------------------------------#
-    def render(self, img : np.ndarray, reg_angle : float = None) :
+    def map_fiber(self, split : 'Split.Split'):
+        
+        offset = np.array(split.origin, dtype=np.int32)
+        mapped_cnt_array = self.contour + offset
+        mapped_fiber = Fiber(mapped_cnt_array)
+
+        return mapped_fiber
+
+    #--------------------------------------------------------------------------------#
+    def render(self, img : np.ndarray, 
+               color_config_path : str,
+               reg_angle : float = None) -> None:
 
         if(tools.img_empty(img)):
             raise ValueError(f"render() Fiber.py line 63 : img is empty")
         
         if(reg_angle):
-            color = tools.angle_to_color(reg_angle)
+            color = tools.get_color(reg_angle, config_path=color_config_path)
         else:
             color = tools.angle_to_color(self.angle)
 

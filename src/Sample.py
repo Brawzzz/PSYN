@@ -151,7 +151,8 @@ class Sample :
 
                     img_xy = self.img[y_start:y_end, x_start:x_end]
                     
-                    split_i = Split.Split(n_id=split_idx, sample_path=self.output_path)
+                    origin = [x_start, y_start]
+                    split_i = Split.Split(n_id=split_idx, n_origin=origin, sample_path=self.output_path)
                     self.splits.append(split_i)
 
                     cv.imwrite(split_i.img_path, img_xy)
@@ -209,7 +210,7 @@ class Sample :
             cv.imwrite(recon_file, img_join)
 
         else:
-            raise ValueError(f"join() Sample.py line 199 : vstack error {strip}")    
+            raise ValueError(f"join() Sample.py line 213 : vstack error {strip}")    
         
     #--------------------------------------------------------------------------------#
     def tresh_img(self,
@@ -244,11 +245,11 @@ class Sample :
                 else:
                     img_bw = cv.adaptiveThreshold(
                         img_blur, 
-                        maxValue=255, 
+                        maxValue=stp.MAX, 
                         adaptiveMethod=cv.ADAPTIVE_THRESH_GAUSSIAN_C, 
                         thresholdType=cv.THRESH_BINARY,
-                        blockSize=45,
-                        C=5         
+                        blockSize=stp.K_SIZE,
+                        C=stp.C        
                     )
 
                 kernel = cv.getStructuringElement(shape=cv.MORPH_ELLIPSE, ksize=(3,3))
@@ -284,8 +285,8 @@ class Sample :
 
     #--------------------------------------------------------------------------------#
     def group_regions(self):
-        
-        regions = {idx : [] for idx in self.main_angles}
+
+        regions_group = {idx : [] for idx in self.main_angles}
         
         for reg in self.regions:
 
@@ -305,8 +306,30 @@ class Sample :
                     best_peak = peak
 
             if(min_dist <= stp.DELTA_ANGLE):
-                regions[best_peak].append(reg)
+                regions_group[best_peak].append(reg)
 
+        regions = []
+        for peak in regions_group: 
+            
+            group        : list[Region.Region] = regions_group[peak]
+            mapped_group : list[Region.Region] = [] 
+            for reg in group:
+                
+                current_split = self.splits[reg.split_index]
+
+                mapped_fibers : list[Fiber.Fiber] = []
+                for fib in reg.fibers:
+                    mapped_fib = fib.map_fiber(current_split) 
+                    mapped_fibers.append(mapped_fib)
+
+                mapped_reg = Region.Region(mapped_fibers, n_split_index=-1)
+                mapped_group.append(mapped_reg)
+
+            region_peak       = Region.merge_regions(mapped_group)
+            region_peak.shape = region_peak.compute_shape()
+            
+            regions.append(region_peak)
+            
         return regions
 
     #--------------------------------------------------------------------------------#
@@ -330,6 +353,17 @@ class Sample :
             }
 
             json.dump(final_json, f, indent=4)
+
+    #--------------------------------------------------------------------------------#
+    def render(self, img : np.ndarray = None):
+
+        if tools.img_empty(img):
+            for split in tqdm(self.splits, desc="Rendering      ", unit="img"):
+                split.save(self.color_config)
+        
+        else:
+            for reg in self.regions:
+                reg.render_fibers(img, self.color_config)
 
     #--------------------------------------------------------------------------------#
     def print(self, region=False):
@@ -356,11 +390,6 @@ class Sample :
             print(f"regions.len     = {len(self.regions)}")
             print(f"main angles     = {self.main_angles}")
             print(f"#==================================================#\n")
-
-    #--------------------------------------------------------------------------------#
-    def render(self):
-        for split in tqdm(self.splits, desc="Rendering      ", unit="img"):
-            split.save()
 
 #----------------------------------------------------------------------------------------------------------------------------#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
