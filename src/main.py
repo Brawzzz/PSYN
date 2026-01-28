@@ -40,11 +40,11 @@ import Region
 sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
 
 sample.process_regions()
+sample.render_config()
 
 sample.render()
 sample.join()
 
-sample.render_config()
 sample.regions = sample.group_regions()
 
 sample.print()

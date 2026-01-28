@@ -108,7 +108,7 @@ class Sample :
             return(row, col)
         
     #--------------------------------------------------------------------------------#
-    def split(self):
+    def split(self, auto_save : bool = True):
 
         if(tools.img_empty(self.img)):
             raise ValueError(f"impossible to split : self.img = {self.img} (is empty) ")
@@ -122,18 +122,19 @@ class Sample :
 
             return 
         
+        #---------------
         (img_h, img_w) = self.img.shape[:2]
 
         h_step = img_h // self.row
         w_step = img_w // self.col
 
-        #---------------
         y_max = int((self.process_split-1) // self.col) 
         x_max = int((self.process_split-1) % self.col)
 
         split_idx = 0
         with tqdm(total=self.process_split, desc="Splitting images     ", unit="img") as pbar:
-                                               
+
+            images = []                             
             for y in range(0, y_max+1):
                 for x in range(0, x_max+1):
                     
@@ -154,12 +155,18 @@ class Sample :
                     origin = [x_start, y_start]
                     split_i = Split.Split(n_id=split_idx, n_origin=origin, sample_path=self.output_path)
                     self.splits.append(split_i)
-
-                    cv.imwrite(split_i.img_path, img_xy)
+                    
+                    if auto_save:
+                        cv.imwrite(split_i.img_path, img_xy)
+                    else:
+                        images.append(img_xy)
 
                     split_idx += 1
                     pbar.update(1)
 
+        if images :
+            return images
+        
     #--------------------------------------------------------------------------------#
     def join(self) -> None:
 
