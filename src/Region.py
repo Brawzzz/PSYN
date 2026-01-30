@@ -30,7 +30,7 @@ class Region :
 
         self.name           = stp.REGION_ + str(int(self.mean_angle))
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def set_fibers(self, fibers : list[Fiber.Fiber]) -> None:
         
         coords = np.array([fib.position for fib in fibers])
@@ -45,7 +45,7 @@ class Region :
 
         return valid_fibers
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_angle(self, compute_mean=True) -> float:
 
         if not self.fibers :
@@ -54,7 +54,7 @@ class Region :
         
         angles = np.array([fib.angle for fib in self.fibers])
 
-        #--------------- 
+        #------------------------------
         if np.std(angles) > stp.MAX_ANGLE_DEV: 
 
             angles_shifted = np.where(angles > 90, angles - stp.MAX_ANGLE, angles)
@@ -70,18 +70,18 @@ class Region :
 
             return mean_val if compute_mean else median_val
             
-        #---------------
+        #------------------------------
         else:
             return np.mean(angles) if compute_mean else np.median(angles)  
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_shape(self):
 
         if(len(self.fibers) == 0):
             Warning("compute_angle() in Region.py line 52 : self.fibers is empty")
             return []
 
-        #---------------
+        #------------------------------
         STEP = 200
         all_contour_points = []
 
@@ -94,7 +94,7 @@ class Region :
 
         points = np.vstack(all_contour_points)
 
-        #---------------
+        #------------------------------
         try:
             shape_polygon = a_shape.alphashape(points, stp.ALPHA)
             return shape_polygon
@@ -102,7 +102,7 @@ class Region :
         except Exception as e:
             raise ValueError(f"Error while computing alphashape: {e}")
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def add_fiber(self, n_fib : Fiber.Fiber = None, n_fibers : list[Fiber.Fiber] = None):
 
         if n_fibers :
@@ -130,7 +130,7 @@ class Region :
         else:
             return
         
-        #---------------
+        #------------------------------
         if(color_config_path != None):
             if(os.path.exists(color_config_path)):
                 color = tools.get_color(self.mean_angle, config_path=color_config_path)
@@ -148,7 +148,7 @@ class Region :
 
         cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def render_fibers(self, img : np.ndarray, color_config_path : str) -> None:
 
         if(len(self.fibers) == 0):
@@ -159,32 +159,32 @@ class Region :
                        reg_angle=self.mean_angle, 
                        color_config_path=color_config_path)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def render(self, img : np.ndarray, 
                color_config_path : str,
                render_type : int = stp.DRAW_FIBER) -> np.ndarray:
 
-        #---------------
+        #------------------------------
         if(render_type == stp.DRAW_FIBER):
             self.render_fibers(img, color_config_path)
             return img
 
-        #---------------
+        #------------------------------
         elif(render_type == stp.DRAW_SHAPE):
             self.render_shape(img, color_config_path)
             return img
         
-        #---------------
+        #------------------------------
         elif(render_type == stp.DRAW_FIBER + stp.DRAW_SHAPE):
             self.render_fibers(img, color_config_path)
             self.render_shape(img, color_config_path)
             return img
         
-        #---------------
+        ##------------------------------
         else:
             raise ValueError(f"render() Region.py line : 136 : uknown method value | method = {render_type}")
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def print(self):
 
         print(f"#========== {self.name} ==========#")

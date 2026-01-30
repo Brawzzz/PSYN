@@ -31,24 +31,25 @@ class Split:
         self.dir_path       = sample_path + self.prefix + "/" 
         self.regions_dir    = self.dir_path + self.prefix + "_regions" + "/"
 
-        (self.img_path, self.thresh_path) = self.set_path() 
+        (self.img_path, self.blur_path, self.thresh_path) = self.set_path() 
         
         os.makedirs(self.dir_path, exist_ok=True)
         os.makedirs(self.regions_dir, exist_ok=True)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def set_path(self):
         
         img_path       = self.dir_path + self.prefix + "_img" + stp.OUTPUT_EXTENSION 
+        blur_path      = self.dir_path + self.prefix + "_blur" + stp.OUTPUT_EXTENSION
         thresh_path    = self.dir_path + self.prefix + "_thresh" + stp.OUTPUT_EXTENSION
 
-        return(img_path, thresh_path)
+        return(img_path, blur_path, thresh_path)
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def set_render(self, n_render_type : dict):
         self.img_path = n_render_type
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def print(self):
 
         print(f"#========== SPLIT {self.id} ==========#")
@@ -65,7 +66,7 @@ class Split:
         
         print(f"#================================#\n")
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def save(self, color_config_path : str):
 
         if(not os.path.exists(color_config_path)):

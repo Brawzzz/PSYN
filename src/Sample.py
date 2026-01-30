@@ -28,11 +28,13 @@ class Sample :
         self.img_path       = ""  
         self.img            = None
 
-        self.output_path    = stp.OUTPUT_PATH
+        self.output_path    = ""
+        self.splits_path    = ""
+        self.regions_path   = ""
         
         self.before_fret    = None 
 
-        #---------------
+        #------------------------------
         if(n_split % 2 != 0):
             if(n_split != 1):
                 raise ValueError(f"__init__() Sample.py line 29 : nb_split must be even : nb_split = {n_split}")
@@ -41,7 +43,7 @@ class Sample :
         (self.row, self.col)    = self.compute_row_col(self.nb_split)
         self.process_split      = self.nb_split
 
-        #---------------
+        #------------------------------
         self.splits  : list[Split.Split]   = [] 
         self.regions : list[Region.Region] = [] 
 
@@ -49,11 +51,12 @@ class Sample :
 
         self.color_config = ""
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def set_path(self, n_bf=True):
 
         self.before_fret = n_bf
 
+        #------------------------------
         if(self.before_fret):
             self.name       = "hxtl_p" + self.id + "_pre.bmp"
             self.img_path   = stp.DATA_PATH + "sample_" + str(self.id) + "/before_fretting/" + self.name
@@ -61,13 +64,16 @@ class Sample :
            self.name        = "hxtl_p" + self.id + "_post.bmp"
            self.img_path    = stp.DATA_PATH + "sample_" + str(self.id) + "/after_fretting/" + self.name 
         
-        #---------------
+        #------------------------------
         self.name           = os.path.splitext(self.name)[0]
-        self.output_path    = self.output_path + self.name + "/"
 
-        self.color_config = os.path.join(self.output_path, self.name + "_color_config.json")
+        self.output_path    = stp.OUTPUT_PATH + self.name + "/"
+        self.splits_path    = self.output_path + "splits/"
+        self.regions_path   = self.output_path + "regions/"
 
-    #--------------------------------------------------------------------------------#
+        self.color_config   = os.path.join(self.output_path, self.name + "_color_config.json")
+
+    #================================================================================#
     def load_img(self):
 
         if(self.img_path == None) :
@@ -79,7 +85,7 @@ class Sample :
         else :
             self.img = cv.imread(self.img_path, cv.IMREAD_GRAYSCALE)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_row_col(self, n : int) -> tuple[int, int]:
         
         MIN_COL = 12
@@ -107,7 +113,7 @@ class Sample :
 
             return(row, col)
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def split(self, auto_save : bool = True):
 
         if(tools.img_empty(self.img)):
@@ -122,7 +128,7 @@ class Sample :
 
             return 
         
-        #---------------
+        #------------------------------
         (img_h, img_w) = self.img.shape[:2]
 
         h_step = img_h // self.row
@@ -151,9 +157,9 @@ class Sample :
                         x_end = img_w
 
                     img_xy = self.img[y_start:y_end, x_start:x_end]
-                    
                     origin = [x_start, y_start]
-                    split_i = Split.Split(n_id=split_idx, n_origin=origin, sample_path=self.output_path)
+
+                    split_i = Split.Split(n_id=split_idx, n_origin=origin, sample_path=self.splits_path)
                     self.splits.append(split_i)
                     
                     if auto_save:
@@ -167,14 +173,14 @@ class Sample :
         if images :
             return images
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def join(self) -> None:
 
         if(self.process_split % self.col != 0):
             raise ValueError(f"\nSample.py join() line 158 : process_split is not a multiple of self.col = {self.process_split % self.col}\n")
         
         suffix          = "_all" + stp.OUTPUT_EXTENSION 
-        search_pattern  = os.path.join(self.output_path, "**", "*" + suffix)
+        search_pattern  = os.path.join(self.splits_path, "**", "*" + suffix)
         all_split_files = sorted(glob.glob(search_pattern, recursive=True), key=tools.extract_number)
         recon_file      = self.output_path + self.name + suffix
 
@@ -190,17 +196,17 @@ class Sample :
             
             all_split.append(split_img)
 
-        #---------------
+        #------------------------------
         if not all_split:
             raise ValueError(f"join() Sample.py line 169 : no image found ")
 
         y_max = int((self.process_split-1) // self.col) 
-        for y in tqdm(range(y_max+1), desc="Join           ", unit="row"):
 
+        for y in tqdm(range(y_max+1), desc="Join                 ", unit="row"):
+                                           
             start_index = y * self.col
-            end_index = start_index + self.col
-
-            row_images = all_split[start_index:end_index]
+            end_index   = start_index + self.col
+            row_images  = all_split[start_index:end_index]
             
             if not row_images:
                 print(f"Erreur reconstruction ligne {y} : liste vide")
@@ -212,6 +218,7 @@ class Sample :
             except ValueError as e:
                 print(f"hstack error ligne {y} : {e}")
 
+        #------------------------------
         if strip:
             img_join = np.vstack(strip)
             cv.imwrite(recon_file, img_join)
@@ -219,14 +226,14 @@ class Sample :
         else:
             raise ValueError(f"join() Sample.py line 213 : vstack error {strip}")    
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def tresh_img(self,
                   blur_method   : int = stp.GAUSSIAN_BLUR,
                   thresh_method : int = stp.CLASSIC_THRESH):
 
         with tqdm(total=self.process_split, desc="Thresholding images  ", unit="itm") as pbar:
-
-            #---------------
+                                                 
+            #------------------------------
             for split in self.splits:
 
                 img = cv.imread(split.img_path, cv.IMREAD_GRAYSCALE)
@@ -243,9 +250,7 @@ class Sample :
                 else :
                     img_blur = cv.blur(img, stp.KERNEL_SIZE)
 
-                cv.imwrite(split.dir_path + split.prefix + "_blur" + stp.OUTPUT_EXTENSION, img_blur)
-
-                #---------------
+                #------------------------------
                 if(thresh_method == stp.CLASSIC_THRESH):
                     (_, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, stp.THRESH_TYPE)
 
@@ -262,11 +267,12 @@ class Sample :
                 kernel = cv.getStructuringElement(shape=cv.MORPH_ELLIPSE, ksize=(3,3))
                 img_bw = cv.morphologyEx(img_bw, cv.MORPH_OPEN, kernel)
 
+                cv.imwrite(split.blur_path, img_blur)
                 cv.imwrite(split.thresh_path, img_bw)
 
                 pbar.update(1)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def process_regions(self):
         
         with tqdm(total=self.process_split, desc="Process split        ", unit="itm") as pbar:
@@ -276,7 +282,7 @@ class Sample :
                 fibers          = Fiber.detect_fibers(split.thresh_path)
                 sorted_fibers   = Fiber.group_fibers(fibers)
 
-                #---------------
+                #------------------------------
                 for i in range(len(sorted_fibers)):
 
                     reg_i = Region.Region(fibers = sorted_fibers[i], n_split_index = split.id)
@@ -290,9 +296,10 @@ class Sample :
         angles           = [reg.mean_angle for reg in self.regions]    
         self.main_angles = tools.get_peaks(angles, min_peak_height=0, sigma_smoth=1.0)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def group_regions(self):
 
+        #------------------------------
         regions_group = {idx : [] for idx in self.main_angles}
         
         for reg in self.regions:
@@ -315,6 +322,7 @@ class Sample :
             if(min_dist <= stp.DELTA_ANGLE):
                 regions_group[best_peak].append(reg)
 
+        #------------------------------
         regions = []
         for peak in regions_group: 
             
@@ -339,7 +347,7 @@ class Sample :
             
         return regions
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def render_config(self):
 
         color_config = []
@@ -361,18 +369,18 @@ class Sample :
 
             json.dump(final_json, f, indent=4)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def render(self, img : np.ndarray = None):
 
         if tools.img_empty(img):
-            for split in tqdm(self.splits, desc="Rendering      ", unit="img"):
+            for split in tqdm(self.splits, desc="Rendering            ", unit="img"):
                 split.save(self.color_config)
         
         else:
             for reg in self.regions:
                 reg.render_fibers(img, self.color_config)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def print(self, region=False):
 
         if(region):
@@ -388,6 +396,9 @@ class Sample :
             print(f"name            : {self.name}")
             print(f"path            : {self.img_path}")
             
+            print(f"splits_path     : {self.splits_path}")
+            print(f"regions_path    : {self.regions_path}")
+
             print(f"before fret     : {self.before_fret}\n")
 
             print(f"nb split        = {self.nb_split}")
@@ -406,11 +417,13 @@ def init(n_id : int, n_split : int = 8) -> Sample:
     sample = Sample(n_id, n_split=n_split)
     sample.set_path(n_bf=True)
 
+    #------------------------------
     if(os.path.exists(sample.output_path)):
         tools.clear_folder(sample.output_path)
     else:
         os.makedirs(sample.output_path, exist_ok=True)
 
+    #------------------------------
     print("\n")
 
     sample.load_img()
@@ -418,5 +431,7 @@ def init(n_id : int, n_split : int = 8) -> Sample:
 
     sample.tresh_img(blur_method=stp.BILATERAL_BLUR,
                      thresh_method=stp.CLASSIC_THRESH)
+
+    os.makedirs(sample.regions_path, exist_ok=True)
 
     return sample

@@ -32,39 +32,39 @@ class Fiber:
 
         self.ratio = (self.length / self.width) if (self.width and self.width > 0) else 0.0
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_oriented_box(self):
 
         if(self.perimeter > 0):
             return(cv.minAreaRect(self.contour))
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_angle(self):
         
         if(self.oriented_box):
             return(fiber_angle(self.oriented_box))
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_position(self):
 
         if(self.oriented_box):
             return(self.oriented_box[0])
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_length(self):
 
         if(self.oriented_box):
             (w, h) = self.oriented_box[1]
             return(max(w, h))
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def compute_width(self):
 
         if(self.oriented_box):
             (w, h) = self.oriented_box[1]
             return(min(w, h))
         
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def valid_fiber(self) -> bool:
 
         if(self.perimeter > stp.CNTRS_LEN_MIN and self.length >= stp.FIBER_LEN_MIN and 
@@ -73,7 +73,7 @@ class Fiber:
         
         return False
     
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def map_fiber(self, split : 'Split.Split'):
         
         offset = np.array(split.origin, dtype=np.int32)
@@ -82,7 +82,7 @@ class Fiber:
 
         return mapped_fiber
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def render(self, img : np.ndarray, 
                color_config_path : str,
                reg_angle : float = None) -> None:
@@ -99,7 +99,7 @@ class Fiber:
                         contourIdx=-1, color=color, 
                         thickness=stp.FIB_THICHNESS, lineType=cv.LINE_AA)
 
-    #--------------------------------------------------------------------------------#
+    #================================================================================#
     def print(self):
 
         print(f"angle           = {self.angle}")
@@ -124,7 +124,7 @@ def fiber_angle(rect):
 
     return real_angle % 180
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 @staticmethod
 def select_fiber(fibers : list[Fiber]) -> list[Fiber]:
 
@@ -136,7 +136,7 @@ def select_fiber(fibers : list[Fiber]) -> list[Fiber]:
     
     return selected_fibers
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 @staticmethod
 def detect_fibers(thresh_img_path : str) -> list[Fiber] : 
 
@@ -153,7 +153,7 @@ def detect_fibers(thresh_img_path : str) -> list[Fiber] :
 
     return fibers
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 @staticmethod
 def group_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
 
@@ -161,9 +161,9 @@ def group_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
         return []
     
     angles      = np.array([fib.angle for fib in fibers])
-    peaks_index = tools.get_peaks(angles)
+    peaks_index = tools.get_peaks(angles, min_peak_height=5, sigma_smoth=2.0)
 
-    #---------------
+    #------------------------------
     sorted_groups = {idx : [] for idx in peaks_index}
     
     for fib in fibers:
@@ -186,7 +186,7 @@ def group_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
         if(min_dist <= stp.DELTA_ANGLE):
             sorted_groups[best_peak].append(fib)
 
-    #---------------    
+    #------------------------------   
     result = []
     for peak in sorted_groups:
         group = sorted_groups[peak]

@@ -23,7 +23,7 @@ def angle_to_color(angle : float):
 
     return (int(bgr_px[0]), int(bgr_px[1]), int(bgr_px[2]))
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def get_color(angle : float, config_path : str = stp.CONFIG_COLOR_PATH):
     
     if(os.path.exists(config_path)):
@@ -55,7 +55,7 @@ def get_color(angle : float, config_path : str = stp.CONFIG_COLOR_PATH):
         print(f"{config_path} : No such file or directory")
         return
     
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
 
     for item in os.listdir(folder_path):
@@ -72,7 +72,7 @@ def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
         except Exception as e:
             print(f"Impossible dto remove {item_path} : {e}")
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def shapely_to_opencv(polygon):
 
     if polygon.is_empty:
@@ -85,12 +85,12 @@ def shapely_to_opencv(polygon):
 
     return points
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def get_peaks(angles : list[float], 
               min_peak_height = 5, 
               sigma_smoth = 2.0) -> list[float]:
     
-    #---------------
+    #------------------------------
     if len(angles) == 0:
         return []
     
@@ -98,11 +98,11 @@ def get_peaks(angles : list[float],
         Warning(f"max(angles) > {stp.MAX_ANGLE} or min(angles) < {stp.MIN_ANGLE}")
         return angles
     
-    #---------------
+    #------------------------------
     BIN_SIZE        = 1       
     MARGIN_CIRCULAR = stp.DELTA_ANGLE 
 
-    #---------------
+    #------------------------------
     angles_extended = list(angles)
 
     for ang in angles:
@@ -111,7 +111,7 @@ def get_peaks(angles : list[float],
         elif ang > stp.MAX_ANGLE - MARGIN_CIRCULAR : 
             angles_extended.append(ang - stp.MAX_ANGLE)
     
-    #---------------
+    #------------------------------
     bins        = np.arange(-MARGIN_CIRCULAR, stp.MAX_ANGLE + MARGIN_CIRCULAR + BIN_SIZE, BIN_SIZE)
     (hist, _)   = np.histogram(angles_extended, bins=bins)
     hist        = hist.astype(np.float32).reshape(1, -1)
@@ -119,7 +119,7 @@ def get_peaks(angles : list[float],
     k_size      = int(2 * np.ceil(3 * sigma_smoth) + 1)
     hist_smooth = cv.GaussianBlur(hist, (k_size, 1), sigma_smoth)[0]
     
-    #---------------
+    #------------------------------
     start_idx = int(MARGIN_CIRCULAR / BIN_SIZE)
     end_idx   = start_idx + int(stp.MAX_ANGLE / BIN_SIZE)
 
@@ -143,7 +143,7 @@ def get_peaks(angles : list[float],
     if not peaks_index:
         return []
 
-    #---------------
+    #------------------------------
     peaks_index.sort()
     
     merged_peaks = []
@@ -185,7 +185,7 @@ def get_peaks(angles : list[float],
 
         return  merged_peaks
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def img_empty(img):
 
     if img is None:
@@ -196,22 +196,22 @@ def img_empty(img):
         
     return False
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def extract_number(path):
     match = re.search(r'_(\d+)', path)
     if match:
         return int(match.group(1)) 
     return 0
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def f_pass(x):
     pass
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def is_pow_2(n):
     return((n and (n-1)) == 0)
 
-#--------------------------------------------------------------------------------#
+#================================================================================#
 def interactive_th(img_blur, f_pass=f_pass):
     
     cv.namedWindow('Thresh settings')

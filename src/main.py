@@ -38,8 +38,8 @@ import Region
 #---------------------------------------------------------- MAIN ------------------------------------------------------------#
 #----------------------------------------------------------------------------------------------------------------------------#
 sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
-
 sample.process_regions()
+
 sample.render_config()
 
 sample.render()
@@ -49,14 +49,8 @@ sample.regions = sample.group_regions()
 
 sample.print()
 
-for i in range(len(sample.regions)):
-    
-    img = np.copy(cv.cvtColor(sample.img, cv.COLOR_GRAY2BGR))
-    reg_0 = sample.regions[i]
-    reg_0.render_shape(img)
+img = np.copy(cv.cvtColor(sample.img, cv.COLOR_GRAY2BGR))
+for reg in sample.regions:
 
-    cv.imwrite(sample.output_path + "test_" + str(i) + "_.png", img)
-
-
-print("\n")   
-
+    reg.render_shape(img)
+    cv.imwrite(sample.regions_path + "region_" + str(int(reg.mean_angle)) + stp.OUTPUT_EXTENSION, img)
