@@ -1,6 +1,6 @@
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 import os 
 import cv2 as cv
 import numpy as np
@@ -12,9 +12,9 @@ if TYPE_CHECKING:
 import setup as stp
 
 
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 #---------------------------------------------------------- CLASS -----------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 class Split:
 
     def __init__(self, n_id : int, n_origin : tuple[int, int], sample_path : str):
@@ -23,7 +23,6 @@ class Split:
         self.prefix = stp.SPLIT_ + str(self.id)
 
         self.origin = n_origin
-
         self.regions : list['Region.Region'] = []
 
         self.render = stp.RENDER_FIBER
@@ -67,10 +66,10 @@ class Split:
         print(f"#================================#\n")
 
     #================================================================================#
-    def save(self, color_config_path : str):
+    def save(self, config_path : str):
 
-        if(not os.path.exists(color_config_path)):
-            raise ValueError(f"path do not exist : {color_config_path}")
+        if(not os.path.exists(config_path)):
+            raise ValueError(f"path do not exist : {config_path}")
         
         render = self.render["id"]
         all_img = cv.imread(self.img_path, cv.IMREAD_COLOR_BGR)
@@ -79,13 +78,8 @@ class Split:
 
             region_img = cv.imread(self.img_path, cv.IMREAD_COLOR_BGR)
 
-            reg.render(region_img, 
-                       color_config_path=color_config_path, 
-                       render_type=render)
-            
-            reg.render(all_img, 
-                       color_config_path=color_config_path,
-                       render_type=render)
+            reg.render(region_img, n_config_path=config_path, render_type=render)
+            reg.render(all_img, n_config_path=config_path, render_type=render)
 
             region_render_path = os.path.join(self.regions_dir, self.prefix + "_" + reg.name + stp.OUTPUT_EXTENSION) 
             cv.imwrite(region_render_path, region_img)

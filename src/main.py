@@ -18,39 +18,36 @@ __maintainer__ = ""
 __email__   = ["", ""]
 __status__  = "Development" 
 
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
-import os
-import tools
-import glob
+#============================================================================================================================#
 import cv2 as cv
 import numpy as np
-
-from tqdm import tqdm
 
 import setup as stp
 
 import Sample
 import Region
 
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 #---------------------------------------------------------- MAIN ------------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
-sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
+#============================================================================================================================#
+sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT, n_fret=False)
 sample.process_regions()
+sample.set_config()
 
-sample.render_config()
+# sample.render()
+# sample.join()
 
-sample.render()
-sample.join()
+sample.group_regions()
+sample.global_shape()
 
-sample.regions = sample.group_regions()
-
+sample.save()
 sample.print()
 
 img = np.copy(cv.cvtColor(sample.img, cv.COLOR_GRAY2BGR))
-for reg in sample.regions:
 
-    reg.render_shape(img)
-    cv.imwrite(sample.regions_path + "region_" + str(int(reg.mean_angle)) + stp.OUTPUT_EXTENSION, img)
+regions_img = sample.render(img, n_render=stp.RENDER_SHAPE["id"])
+cv.imwrite(sample.output_path + sample.name + "_regions_all.png", regions_img)
+
+print("\n")

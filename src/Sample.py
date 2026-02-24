@@ -1,12 +1,15 @@
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 import os
 import glob
 import json
+import roifile
 import cv2 as cv
 import numpy as np
+
 from tqdm import tqdm
+from datetime import datetime
 
 import Fiber
 import Region
@@ -15,9 +18,9 @@ import Split
 import tools
 import setup as stp
 
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 #---------------------------------------------------------- CLASS -----------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
+#============================================================================================================================#
 class Sample :
 
     def __init__(self, n_id, n_split):
@@ -32,7 +35,8 @@ class Sample :
         self.splits_path    = ""
         self.regions_path   = ""
         
-        self.before_fret    = None 
+        self.fretting       = None 
+        self.config         = "" 
 
         #------------------------------
         if(n_split % 2 != 0):
@@ -44,20 +48,17 @@ class Sample :
         self.process_split      = self.nb_split
 
         #------------------------------
+        self.main_angles                   = []
         self.splits  : list[Split.Split]   = [] 
         self.regions : list[Region.Region] = [] 
 
-        self.main_angles = []
-
-        self.color_config = ""
-
     #================================================================================#
-    def set_path(self, n_bf=True):
+    def set_path(self, n_fret=False):
 
-        self.before_fret = n_bf
+        self.fretting = n_fret
 
         #------------------------------
-        if(self.before_fret):
+        if(not self.fretting):
             self.name       = "hxtl_p" + self.id + "_pre.bmp"
             self.img_path   = stp.DATA_PATH + "sample_" + str(self.id) + "/before_fretting/" + self.name
         else:
@@ -71,7 +72,9 @@ class Sample :
         self.splits_path    = self.output_path + "splits/"
         self.regions_path   = self.output_path + "regions/"
 
-        self.color_config   = os.path.join(self.output_path, self.name + "_color_config.json")
+        date_str        = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+        config_suffix   = "_config_" + date_str + ".json" 
+        self.config     = os.path.join(self.output_path, self.name + config_suffix)
 
     #================================================================================#
     def load_img(self):
@@ -114,7 +117,7 @@ class Sample :
             return(row, col)
         
     #================================================================================#
-    def split(self, auto_save : bool = True):
+    def split(self, save : bool = True):
 
         if(tools.img_empty(self.img)):
             raise ValueError(f"impossible to split : self.img = {self.img} (is empty) ")
@@ -138,7 +141,7 @@ class Sample :
         x_max = int((self.process_split-1) % self.col)
 
         split_idx = 0
-        with tqdm(total=self.process_split, desc="Splitting images     ", unit="img") as pbar:
+        with tqdm(total=self.process_split, desc="Splitting image      ", unit="img") as pbar:
 
             images = []                             
             for y in range(0, y_max+1):
@@ -162,7 +165,7 @@ class Sample :
                     split_i = Split.Split(n_id=split_idx, n_origin=origin, sample_path=self.splits_path)
                     self.splits.append(split_i)
                     
-                    if auto_save:
+                    if save:
                         cv.imwrite(split_i.img_path, img_xy)
                     else:
                         images.append(img_xy)
@@ -202,7 +205,7 @@ class Sample :
 
         y_max = int((self.process_split-1) // self.col) 
 
-        for y in tqdm(range(y_max+1), desc="Join                 ", unit="row"):
+        for y in tqdm(range(y_max+1), desc="Join                 ", unit="split"):
                                            
             start_index = y * self.col
             end_index   = start_index + self.col
@@ -301,7 +304,7 @@ class Sample :
 
         #------------------------------
         regions_group = {idx : [] for idx in self.main_angles}
-        
+
         for reg in self.regions:
 
             ang         = reg.mean_angle
@@ -324,32 +327,51 @@ class Sample :
 
         #------------------------------
         regions = []
-        for peak in regions_group: 
-            
-            group        : list[Region.Region] = regions_group[peak]
-            mapped_group : list[Region.Region] = [] 
-            for reg in group:
+
+        with tqdm(total=len(regions_group), desc="Computing global regions ", unit="reg") as pbar:
+
+            for peak in regions_group: 
                 
-                current_split = self.splits[reg.split_index]
+                group        : list[Region.Region] = regions_group[peak]
+                mapped_group : list[Region.Region] = [] 
 
-                mapped_fibers : list[Fiber.Fiber] = []
-                for fib in reg.fibers:
-                    mapped_fib = fib.map_fiber(current_split) 
-                    mapped_fibers.append(mapped_fib)
+                for reg in group:
+                    
+                    current_split = self.splits[reg.split_index]
 
-                mapped_reg = Region.Region(mapped_fibers, n_split_index=-1)
-                mapped_group.append(mapped_reg)
+                    mapped_fibers : list[Fiber.Fiber] = []
+                    for fib in reg.fibers:
+                        mapped_fib = fib.map_fiber(current_split) 
+                        mapped_fibers.append(mapped_fib)
 
-            region_peak       = Region.merge_regions(mapped_group)
-            region_peak.shape = region_peak.compute_shape()
-            
-            regions.append(region_peak)
-            
-        return regions
+                    mapped_reg = Region.Region(mapped_fibers, n_split_index=-1)
+                    mapped_group.append(mapped_reg)
 
+                region_peak = Region.merge_regions(mapped_group)
+                regions.append(region_peak)
+
+                pbar.update(1)
+                
+            self.regions = regions
+
+            return regions
+    
     #================================================================================#
-    def render_config(self):
+    def global_shape(self) -> None:
 
+        with tqdm(total=len(self.regions), desc="Computing global shapes ", unit="reg") as pbar:
+
+            for reg in self.regions:
+
+                reg.shape = reg.compute_shape(morph=True)
+                pbar.update(1)
+        
+        return
+    
+    #================================================================================#
+    def set_config(self):
+
+        #------------------------------
         color_config = []
         for ang in self.main_angles:
 
@@ -360,26 +382,80 @@ class Sample :
 
             color_config.append(config)
 
-        with open(self.color_config, "w", encoding="utf-8") as f:
+        #------------------------------
+        params = {
+            "nb_split"        : stp.NB_SPLIT,
+
+            "cntrs_len_min"   : stp.CNTRS_LEN_MIN,  
+            "fiber_len_min"   : stp.FIBER_LEN_MIN,  
+            "fiber_width_max" : stp.FIBER_WIDTH_MAX,  
+            "fiber_ratio_min" : stp.FIBER_RATIO_MIN, 
+
+            "blur_method"     : stp.BLUR_METHOD,
+            "thresh_method"   : stp.THRESH_METHOD,  
+
+            "region_min_fiber": stp.REGION_MIN_FIBER,
+            "region_min_area" : stp.REGION_MIN_AREA, 
+        }
+        
+        with open(self.config, "w", encoding="utf-8") as f:
 
             final_json = {
-                "description": self.name + " Color Config",
+                "description": self.name + " Config",
+                "params": params,
                 "colors": color_config
             }
 
             json.dump(final_json, f, indent=4)
 
     #================================================================================#
-    def render(self, img : np.ndarray = None):
+    def render(self, img : np.ndarray = None, n_render : int = stp.RENDER_FIBER) -> np.ndarray:
 
         if tools.img_empty(img):
+
             for split in tqdm(self.splits, desc="Rendering            ", unit="img"):
-                split.save(self.color_config)
+                split.save(self.config)
         
         else:
-            for reg in self.regions:
-                reg.render_fibers(img, self.color_config)
+            
+            regions_files   =  glob.glob(self.regions_path + "*.roi")
+            new_img_0       = np.zeros_like(img)
+            count           = 0
+            
+            with tqdm(total=len(regions_files), desc="Render contours      ", unit="reg") as pbar:
 
+                for file in regions_files:
+
+                    new_img = np.zeros_like(img)
+                    
+                    roi     = roifile.ImagejRoi.fromfile(file)
+                    points  = roi.coordinates()
+                    points  = np.array(points, dtype=np.int32)
+
+                    cnt = points.reshape((-1, 1, 2))
+
+                    cv.drawContours(new_img_0, [cnt], -1, (0, 0, 255), thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
+                    cv.drawContours(new_img, [cnt], -1, (0, 0, 255), thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
+
+                    cv.imwrite(self.regions_path + self.name + "_region_" + str(count) + ".png", new_img)
+
+                    count += 1
+                    pbar.update(1)
+                
+                return new_img_0
+
+            #------------------------------
+            for reg in tqdm(self.regions, desc="Rendering regions    ", unit="img") :
+                
+                new_img = np.zeros_like(img)
+
+                regions_img = reg.render(new_img_0, n_config_path=self.config, render_type=n_render)   
+                reg_img     = reg.render(new_img, n_config_path=self.config, render_type=n_render)   
+
+                cv.imwrite(self.regions_path + self.name + "_region_" + str(int(reg.mean_angle)) + ".png", reg_img)
+
+            return regions_img
+        
     #================================================================================#
     def print(self, region=False):
 
@@ -399,7 +475,7 @@ class Sample :
             print(f"splits_path     : {self.splits_path}")
             print(f"regions_path    : {self.regions_path}")
 
-            print(f"before fret     : {self.before_fret}\n")
+            print(f"before fret     : {self.fretting}\n")
 
             print(f"nb split        = {self.nb_split}")
             print(f"(row, col)      = ({self.row}, {self.col})")
@@ -409,13 +485,26 @@ class Sample :
             print(f"main angles     = {self.main_angles}")
             print(f"#==================================================#\n")
 
-#----------------------------------------------------------------------------------------------------------------------------#
+    #================================================================================#
+    def save(self):
+
+        if len(self.regions) > stp.NB_SPLIT :
+            raise ValueError("save() Sample.py line 435 : Cannot save sub regions from splits \n")
+        
+        with tqdm(total=len(self.regions), desc="Saving ROI           ", unit="reg") as pbar:
+            
+            for reg in self.regions:
+
+                reg.save(n_regions_path=self.regions_path)
+                pbar.update(1)
+
+#============================================================================================================================#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------#
-def init(n_id : int, n_split : int = 8) -> Sample:
+#============================================================================================================================#
+def init(n_id : int, n_split : int = 8, n_fret = False) -> Sample:
 
     sample = Sample(n_id, n_split=n_split)
-    sample.set_path(n_bf=True)
+    sample.set_path(n_fret=n_fret)
 
     #------------------------------
     if(os.path.exists(sample.output_path)):
@@ -429,8 +518,8 @@ def init(n_id : int, n_split : int = 8) -> Sample:
     sample.load_img()
     sample.split()
 
-    sample.tresh_img(blur_method=stp.BILATERAL_BLUR,
-                     thresh_method=stp.CLASSIC_THRESH)
+    sample.tresh_img(blur_method=stp.BLUR_METHOD,
+                     thresh_method=stp.THRESH_METHOD)
 
     os.makedirs(sample.regions_path, exist_ok=True)
 
