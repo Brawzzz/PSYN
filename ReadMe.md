@@ -7,7 +7,7 @@ This material exhibits certain local variations in the orientation of its fibres
 # Usage #
 
 ## Installation ##
-We recommand to create a python virtual environment in order to use the script. ([text](https://docs.python.org/fr/3.9/library/venv.html))
+We recommand to create a python virtual environment in order to use the script. ([venv python](https://docs.python.org/fr/3.9/library/venv.html))
 The sample's directories need to named as sample_id (exemple : sample_25) and located in ./data/.
 Moreover this project requires a lot of different library which are listed in requirement.txt
 
