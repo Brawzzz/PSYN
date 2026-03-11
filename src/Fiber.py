@@ -17,6 +17,16 @@ import setup as stp
 #============================================================================================================================#
 class Fiber:
 
+    """
+    The Fiber class describe the fibers contained in the materail HexTool
+    It is defined mainly by : 
+
+    contour : the contour ofvthe corresponding fiber in the image
+    oriented_box : a bonding bow ofv the contours which is oriented
+    angle : the angle of the fiber (0-180°)  
+    """
+
+    #------------------------------
     def __init__(self, cnt : list):
         
         self.contour        = cnt
@@ -67,7 +77,12 @@ class Fiber:
     #================================================================================#
     def valid_fiber(self) -> bool:
 
-        if(self.perimeter > stp.CNTRS_LEN_MIN and self.length >= stp.FIBER_LEN_MIN and 
+        """
+        return True if the fiber is considerate as valid False otherwise
+        """
+
+        #------------------------------
+        if(self.perimeter > stp.FIBRE_PERIMETER_MIN and self.length >= stp.FIBER_LEN_MIN and 
            self.width <= stp.FIBER_WIDTH_MAX and self.ratio > stp.FIBER_RATIO_MIN):
             return True
         
@@ -76,6 +91,14 @@ class Fiber:
     #================================================================================#
     def map_fiber(self, split : 'Split.Split'):
         
+        """
+        allows to map fiber contour : pass the contour coordinates form the split basis to 
+        the complete image basis
+
+        split : fiber's split
+        """
+        
+        #------------------------------
         offset = np.array(split.origin, dtype=np.int32)
         mapped_cnt_array = self.contour + offset
         mapped_fiber = Fiber(mapped_cnt_array)
@@ -87,6 +110,14 @@ class Fiber:
                n_config_path : str,
                reg_angle : float = None) -> None:
 
+        """
+        render the contours of the Fiber on img
+
+        n_config_path : path of color configuration
+        reg_angle : angle of the fiber's region
+        """
+
+        #------------------------------
         if(tools.img_empty(img)):
             raise ValueError(f"render() Fiber.py line 63 : img is empty")
         
@@ -101,7 +132,12 @@ class Fiber:
 
     #================================================================================#
     def print(self):
-
+        
+        """
+        print all the data of a fiber
+        """
+        
+        #------------------------------
         print(f"angle           = {self.angle}")
         print(f"position        = {self.position}")
         print(f"length          = {self.length}")
@@ -115,6 +151,9 @@ class Fiber:
 @staticmethod
 def fiber_angle(rect):
 
+    """
+    """
+    
     (_, (w, h), angle) = rect
     
     if w > h:
@@ -126,10 +165,17 @@ def fiber_angle(rect):
 
 #================================================================================#
 @staticmethod
-def select_fiber(fibers : list[Fiber]) -> list[Fiber]:
+def select_fiber(n_fibers : list[Fiber]) -> list[Fiber]:
 
+    """
+    select ony the valid fiber in given list
+
+    n_fibers : list of Fiber
+    """
+    
+    #------------------------------
     selected_fibers = []
-    for fib in fibers:
+    for fib in n_fibers:
         
         if(fib.valid_fiber()):
             selected_fibers.append(fib)
@@ -140,7 +186,14 @@ def select_fiber(fibers : list[Fiber]) -> list[Fiber]:
 @staticmethod
 def detect_fibers(thresh_img_path : str) -> list[Fiber] : 
 
-    thresh_img      = cv.imread(thresh_img_path, cv.IMREAD_GRAYSCALE) 
+    """
+    allows to detect fiber in a threshold image
+
+    thresh_img_path : path to the threshold image on which we want to detect fibers
+    """
+    
+    #------------------------------
+    thresh_img      = cv.imread(thresh_img_path, cv.IMREAD_GRAYSCALE)
     (contours, _)   = cv.findContours(thresh_img, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
 
     fibers = []
@@ -155,18 +208,25 @@ def detect_fibers(thresh_img_path : str) -> list[Fiber] :
 
 #================================================================================#
 @staticmethod
-def group_fibers(fibers : list[Fiber]) -> list[list[Fiber]]:
+def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
-    if not fibers:
+    """
+    create group of fiber of similar orientation
+
+    n_fibers : list of Fiber
+    """
+    
+    #------------------------------
+    if not n_fibers:
         return []
     
-    angles      = np.array([fib.angle for fib in fibers])
+    angles      = np.array([fib.angle for fib in n_fibers])
     peaks_index = tools.get_peaks(angles, min_peak_height=5, sigma_smoth=2.0)
 
     #------------------------------
     sorted_groups = {idx : [] for idx in peaks_index}
     
-    for fib in fibers:
+    for fib in n_fibers:
 
         ang = fib.angle
         

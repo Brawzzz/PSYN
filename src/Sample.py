@@ -4,7 +4,6 @@
 import os
 import glob
 import json
-import roifile
 import cv2 as cv
 import numpy as np
 
@@ -18,11 +17,23 @@ import Split
 import tools
 import setup as stp
 
+
 #============================================================================================================================#
 #---------------------------------------------------------- CLASS -----------------------------------------------------------#
 #============================================================================================================================#
 class Sample :
 
+    """
+    The Sample class contains the tribological data and the image analysis.
+
+    It is defined by mainly :
+
+    n_id    : the id of the sample (exemple : 22, 23, 24, 25) 
+    img     : the image from the tribological study
+    regions : a list of Region instaces from the image analysis
+    """
+
+    #------------------------------
     def __init__(self, n_id, n_split):
 
         self.id             = n_id
@@ -55,9 +66,15 @@ class Sample :
     #================================================================================#
     def set_path(self, n_fret=False):
 
-        self.fretting = n_fret
+        """
+        Set the different path needed for a Sample
+
+        n_fret : True if running affter fretting
+        """
 
         #------------------------------
+        self.fretting = n_fret
+
         if(not self.fretting):
             self.name       = "hxtl_p" + self.id + "_pre.bmp"
             self.img_path   = stp.DATA_PATH + "sample_" + str(self.id) + "/before_fretting/" + self.name
@@ -79,6 +96,11 @@ class Sample :
     #================================================================================#
     def load_img(self):
 
+        """
+        load the corresponding image from the sample 
+        """
+
+        #------------------------------
         if(self.img_path == None) :
             raise ValueError(f"Impossible to load img : img_path = {self.img_path}")
 
@@ -91,6 +113,13 @@ class Sample :
     #================================================================================#
     def compute_row_col(self, n : int) -> tuple[int, int]:
         
+        """
+        compute and set the row/col attributes
+
+        n : number of split 
+        """
+
+        #------------------------------
         MIN_COL = 12
 
         if(n == 1):
@@ -119,15 +148,26 @@ class Sample :
     #================================================================================#
     def split(self, save : bool = True):
 
+        """
+        split the sample in a list of Split object
+
+        save : if true it saves the correspondind split's image otherwise 
+               it return a list containing all the splits images (default : true)
+        """
+
+        #------------------------------
         if(tools.img_empty(self.img)):
             raise ValueError(f"impossible to split : self.img = {self.img} (is empty) ")
         
         if(self.nb_split <= 1):
 
-            print("Splitting image ... ", end="\r")
-            split_i = Split.Split(n_id=0, sample_path=self.output_path)
-            cv.imwrite(split_i.img_path, self.img)
-            print("Splitting image ... Done")
+            with tqdm(total=self.process_split, desc="Splitting image      ", unit="img") as pbar:
+            
+                split_i = Split.Split(n_id=0, n_origin=(0,0), sample_path=self.output_path)
+                self.splits.append(split_i)
+
+                cv.imwrite(split_i.img_path, self.img)
+                pbar.update(1)
 
             return 
         
@@ -179,6 +219,11 @@ class Sample :
     #================================================================================#
     def join(self) -> None:
 
+        """
+        reconstruct the initial image form the splits
+        """
+                
+        #------------------------------
         if(self.process_split % self.col != 0):
             raise ValueError(f"\nSample.py join() line 158 : process_split is not a multiple of self.col = {self.process_split % self.col}\n")
         
@@ -234,6 +279,14 @@ class Sample :
                   blur_method   : int = stp.GAUSSIAN_BLUR,
                   thresh_method : int = stp.CLASSIC_THRESH):
 
+        """
+        Thresholding of the different splits, the function do both blur and thresh
+
+        blur_method : tell the wanted blur method (default : cv.GaussianBlur())
+        thresh_method : tell the wanted thresh method (default : cv.threshold())
+        """
+
+        #------------------------------
         with tqdm(total=self.process_split, desc="Thresholding images  ", unit="itm") as pbar:
                                                  
             #------------------------------
@@ -253,7 +306,7 @@ class Sample :
                 else :
                     img_blur = cv.blur(img, stp.KERNEL_SIZE)
 
-                #------------------------------
+                #---------------
                 if(thresh_method == stp.CLASSIC_THRESH):
                     (_, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, stp.THRESH_TYPE)
 
@@ -267,18 +320,21 @@ class Sample :
                         C=stp.C        
                     )
 
-                kernel = cv.getStructuringElement(shape=cv.MORPH_ELLIPSE, ksize=(3,3))
-                img_bw = cv.morphologyEx(img_bw, cv.MORPH_OPEN, kernel)
-
+                #---------------
                 cv.imwrite(split.blur_path, img_blur)
                 cv.imwrite(split.thresh_path, img_bw)
 
                 pbar.update(1)
 
     #================================================================================#
-    def process_regions(self):
+    def process_splits(self):
         
-        with tqdm(total=self.process_split, desc="Process split        ", unit="itm") as pbar:
+        """
+        process the split : detection / seltion of fiber
+        """
+        
+        #------------------------------  
+        with tqdm(total=self.process_split, desc="Processing split     ", unit="itm") as pbar:
             
             for split in self.splits :
                                                         
@@ -288,7 +344,7 @@ class Sample :
                 #------------------------------
                 for i in range(len(sorted_fibers)):
 
-                    reg_i = Region.Region(fibers = sorted_fibers[i], n_split_index = split.id)
+                    reg_i = Region.Region(n_fibers = sorted_fibers[i], n_split_index = split.id)
                     if(reg_i.mean_angle != -1):
                         (split.regions).append(reg_i)
 
@@ -297,11 +353,15 @@ class Sample :
                 pbar.update(1)
 
         angles           = [reg.mean_angle for reg in self.regions]    
-        self.main_angles = tools.get_peaks(angles, min_peak_height=0, sigma_smoth=1.0)
+        self.main_angles = tools.get_peaks(angles, min_peak_height=0, sigma_smoth=2)
 
     #================================================================================#
     def group_regions(self):
 
+        """
+        Classify all the fiber depending on their angles
+        """
+        
         #------------------------------
         regions_group = {idx : [] for idx in self.main_angles}
 
@@ -335,6 +395,7 @@ class Sample :
                 group        : list[Region.Region] = regions_group[peak]
                 mapped_group : list[Region.Region] = [] 
 
+                #---------------
                 for reg in group:
                     
                     current_split = self.splits[reg.split_index]
@@ -347,8 +408,11 @@ class Sample :
                     mapped_reg = Region.Region(mapped_fibers, n_split_index=-1)
                     mapped_group.append(mapped_reg)
 
+                #---------------
                 region_peak = Region.merge_regions(mapped_group)
-                regions.append(region_peak)
+
+                if(len(region_peak.fibers) > stp.REGION_MIN_FIBER):
+                    regions.append(region_peak)
 
                 pbar.update(1)
                 
@@ -359,18 +423,29 @@ class Sample :
     #================================================================================#
     def global_shape(self) -> None:
 
-        with tqdm(total=len(self.regions), desc="Computing global shapes ", unit="reg") as pbar:
+        """
+        compute the shape attributes of each global regions in self.regions
+        """
+        
+        #------------------------------
+        with tqdm(total=len(self.regions), desc="Computing global shapes  ", unit="reg") as pbar:
 
             for reg in self.regions:
 
-                reg.shape = reg.compute_shape(morph=True)
+                reg.shape = reg.compute_shape(method=stp.SHAPE_METHOD) 
                 pbar.update(1)
         
         return
     
     #================================================================================#
-    def set_config(self):
+    def save_config(self) -> None:
 
+        """
+        configuration file as an output summary of the params used for a particular run
+
+        file name : sample.name + JJ_MM_AAAA_HH_MIN_S .json (exemple : hxtl_p25_pre_config_26_02_2026_13_51_51.json)
+        """
+        
         #------------------------------
         color_config = []
         for ang in self.main_angles:
@@ -386,18 +461,41 @@ class Sample :
         params = {
             "nb_split"        : stp.NB_SPLIT,
 
-            "cntrs_len_min"   : stp.CNTRS_LEN_MIN,  
-            "fiber_len_min"   : stp.FIBER_LEN_MIN,  
-            "fiber_width_max" : stp.FIBER_WIDTH_MAX,  
-            "fiber_ratio_min" : stp.FIBER_RATIO_MIN, 
+            "delta_angle"     : stp.DELTA_ANGLE,
 
-            "blur_method"     : stp.BLUR_METHOD,
-            "thresh_method"   : stp.THRESH_METHOD,  
+            "fiber_perimeter_min"   : stp.FIBRE_PERIMETER_MIN,  
+            "fiber_len_min"         : stp.FIBER_LEN_MIN,  
+            "fiber_width_max"       : stp.FIBER_WIDTH_MAX,  
+            "fiber_ratio_min"       : stp.FIBER_RATIO_MIN, 
+
+            "blur_method"     : stp.BLUR_STR,
+            "thresh_method"   : stp.THRESH_STR,  
+
+            "bilateral_d"           : stp.BILATERAL_D,          
+            "bilateral_sigma_color" : stp.BILATERAL_SIGMA_COLOR, 
+            "bilateral_sigma_space" : stp.BILATERAL_SIGMA_SPACE,
+
+            "tresh_type"            : stp.THRESH_TYPE_STR,
 
             "region_min_fiber": stp.REGION_MIN_FIBER,
             "region_min_area" : stp.REGION_MIN_AREA, 
+            "hole_min_area"   : stp.HOLE_MIN_AREA, 
+
+            "dbscan_eps"         : stp.DBSCAN_EPS,
+            "dbscan_min_samples" : stp.DBSCAN_MIN_SAMPLES,
+
+            "shape_method"    : stp.SHAPE_STR,
+            
+            "r_dilate"        : stp.R_DILATE,
+            "r_erode"         : stp.R_ERODE,
+
+            "alpha"           : stp.ALPHA,
+            "point_step"      : stp.POINT_STEP,
+
+            "render"          : stp.RENDER_STR
         }
         
+        #------------------------------
         with open(self.config, "w", encoding="utf-8") as f:
 
             final_json = {
@@ -409,48 +507,40 @@ class Sample :
             json.dump(final_json, f, indent=4)
 
     #================================================================================#
-    def render(self, img : np.ndarray = None, n_render : int = stp.RENDER_FIBER) -> np.ndarray:
+    def render(self, n_render : int = stp.RENDER_FIBER, render_splits : bool = False) -> np.ndarray:
 
-        if tools.img_empty(img):
+        """
+        render of all the regions in self.regions
+        create a file for each region and return an image containing all th contours 
+
+        n_render : indicates the desired rendering type 
+        render_split : if true do the render on each spilt of self.splits
+        """
+        
+        #------------------------------
+        if render_splits:
 
             for split in tqdm(self.splits, desc="Rendering            ", unit="img"):
                 split.save(self.config)
         
+        #------------------------------
         else:
-            
-            regions_files   =  glob.glob(self.regions_path + "*.roi")
-            new_img_0       = np.zeros_like(img)
-            count           = 0
-            
-            with tqdm(total=len(regions_files), desc="Render contours      ", unit="reg") as pbar:
 
-                for file in regions_files:
+            if(stp.BACKGROUND == -1):
+                regions_img = cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)
+            else:
+                regions_img = np.ones_like(cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)) * stp.BACKGROUND
 
-                    new_img = np.zeros_like(img)
-                    
-                    roi     = roifile.ImagejRoi.fromfile(file)
-                    points  = roi.coordinates()
-                    points  = np.array(points, dtype=np.int32)
+            #---------------
+            for reg in tqdm(self.regions, desc="Rendering regions     ", unit="img") :
 
-                    cnt = points.reshape((-1, 1, 2))
+                if(stp.BACKGROUND == -1):
+                    reg_img = cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)
+                else:
+                    reg_img = np.ones_like(cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)) * stp.BACKGROUND
 
-                    cv.drawContours(new_img_0, [cnt], -1, (0, 0, 255), thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
-                    cv.drawContours(new_img, [cnt], -1, (0, 0, 255), thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
-
-                    cv.imwrite(self.regions_path + self.name + "_region_" + str(count) + ".png", new_img)
-
-                    count += 1
-                    pbar.update(1)
-                
-                return new_img_0
-
-            #------------------------------
-            for reg in tqdm(self.regions, desc="Rendering regions    ", unit="img") :
-                
-                new_img = np.zeros_like(img)
-
-                regions_img = reg.render(new_img_0, n_config_path=self.config, render_type=n_render)   
-                reg_img     = reg.render(new_img, n_config_path=self.config, render_type=n_render)   
+                regions_img = reg.render(regions_img, n_config_path=self.config, render_type=n_render)   
+                reg_img     = reg.render(reg_img, n_config_path=self.config, render_type=n_render)   
 
                 cv.imwrite(self.regions_path + self.name + "_region_" + str(int(reg.mean_angle)) + ".png", reg_img)
 
@@ -459,6 +549,13 @@ class Sample :
     #================================================================================#
     def print(self, region=False):
 
+        """
+        print all the informations about a Sample 
+
+        region : if true print the information about all the Regions in self.regions[]
+        """
+        
+        #------------------------------
         if(region):
             print(f"\n#=================== SAMPLE {self.id} ====================#\n")
 
@@ -487,13 +584,21 @@ class Sample :
 
     #================================================================================#
     def save(self):
-
-        if len(self.regions) > stp.NB_SPLIT :
-            raise ValueError("save() Sample.py line 435 : Cannot save sub regions from splits \n")
         
-        with tqdm(total=len(self.regions), desc="Saving ROI           ", unit="reg") as pbar:
-            
+        """
+        save all the Region in self.regions[]
+        """
+
+        #------------------------------
+        with tqdm(total=len(self.regions), desc="Export ROI               ", unit="reg") as pbar:
+                                                
             for reg in self.regions:
+                
+                if reg.shape == None:
+
+                    pbar.update(1)
+
+                    continue
 
                 reg.save(n_regions_path=self.regions_path)
                 pbar.update(1)
@@ -503,6 +608,14 @@ class Sample :
 #============================================================================================================================#
 def init(n_id : int, n_split : int = 8, n_fret = False) -> Sample:
 
+    """
+    initialisation of a Sample
+
+    n_split : indicates the desired number of splits
+    n_fret  : indicates whether the study is before of after thr fretting
+    """
+    
+    #------------------------------
     sample = Sample(n_id, n_split=n_split)
     sample.set_path(n_fret=n_fret)
 

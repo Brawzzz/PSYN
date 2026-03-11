@@ -38,6 +38,11 @@ class Split:
     #================================================================================#
     def set_path(self):
         
+        """
+        set up of of all path needed for a Split 
+        """
+
+        #------------------------------ 
         img_path       = self.dir_path + self.prefix + "_img" + stp.OUTPUT_EXTENSION 
         blur_path      = self.dir_path + self.prefix + "_blur" + stp.OUTPUT_EXTENSION
         thresh_path    = self.dir_path + self.prefix + "_thresh" + stp.OUTPUT_EXTENSION
@@ -46,11 +51,22 @@ class Split:
     
     #================================================================================#
     def set_render(self, n_render_type : dict):
+         
+        """
+        set the type of render for th split
+        """
+
+        #------------------------------ 
         self.img_path = n_render_type
     
     #================================================================================#
     def print(self):
 
+        """
+        print a split
+        """
+
+        #------------------------------ 
         print(f"#========== SPLIT {self.id} ==========#")
 
         print(f"nb regions        = {len(self.regions)}\n")
@@ -68,6 +84,11 @@ class Split:
     #================================================================================#
     def save(self, config_path : str):
 
+        """
+        save the split : ender all the regions found in the split
+        """
+
+        #------------------------------ 
         if(not os.path.exists(config_path)):
             raise ValueError(f"path do not exist : {config_path}")
         

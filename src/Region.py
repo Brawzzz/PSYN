@@ -18,34 +18,41 @@ import Fiber
 import tools
 import setup as stp
 
+
 #============================================================================================================================#
 #---------------------------------------------------------- CLASS -----------------------------------------------------------#
 #============================================================================================================================#
 class Region :
 
-    def __init__(self, fibers : list[Fiber.Fiber], n_split_index : int):
+    def __init__(self, n_fibers : list[Fiber.Fiber], n_split_index : int):
         
         self.split_index    = n_split_index
 
-        self.fibers         = self.set_fibers(fibers)
+        self.fibers         = self.set_fibers(n_fibers)
 
         self.mean_angle     = self.compute_angle()
         self.median_angle   = self.compute_angle(compute_mean=False)
 
         self.shape          = []
+        self.shape_file     = ""
 
         self.name           = stp.REGION_ + str(int(self.mean_angle))
 
     #================================================================================#
-    def set_fibers(self, fibers : list[Fiber.Fiber]) -> None:
+    def set_fibers(self, n_fibers : list[Fiber.Fiber]) -> None:
         
-        coords = np.array([fib.position for fib in fibers])
+        """
+        fill self.fibers with n_fibers params
+        """
+        
+        #------------------------------
+        coords = np.array([fib.position for fib in n_fibers])
         dbscan = DBSCAN(eps=stp.DBSCAN_EPS, min_samples=stp.DBSCAN_MIN_SAMPLES, metric='euclidean').fit(coords)
 
         valid_fibers = []
         labels = dbscan.labels_
 
-        for fib, label in zip(fibers, labels):
+        for fib, label in zip(n_fibers, labels):
             if label != -1: 
                 valid_fibers.append(fib)
 
@@ -54,6 +61,13 @@ class Region :
     #================================================================================#
     def compute_angle(self, compute_mean=True) -> float:
 
+        """
+        compute the global angle of a Region.
+
+        compute_mean : if true return the mean angle else return the median angle
+        """
+        
+        #------------------------------
         if not self.fibers :
             Warning("compute_angle() in Region.py line 52 : self.fibers is empty")
             return -1
@@ -81,14 +95,20 @@ class Region :
             return np.mean(angles) if compute_mean else np.median(angles)  
         
     #================================================================================#
-    def compute_shape(self, morph : bool = False):
+    def compute_shape(self, method : int = 0):
 
-        if(len(self.fibers) == 0):
-            Warning("compute_angle() in Region.py line 52 : self.fibers is empty")
-            return []
+        """
+        compute the shape of the Region
+
+        method : defines the wanted method to compute the shape (alphashape, morph ...)
+        """
         
         #------------------------------
-        if(morph == True):
+        if(len(self.fibers) == 0):
+            raise ValueError("compute_shape() in Region.py line 52 : self.fibers is empty")
+        
+        #------------------------------
+        if(method == stp.MORPH):
 
             polygons = []
             for fib in self.fibers:
@@ -107,7 +127,7 @@ class Region :
 
             #---------------
             if not polygons:
-                return None
+                return MultiPolygon([])
 
             dilated_polys   = [p.buffer(stp.R_DILATE).buffer(0) for p in polygons]
             merged_shape    = unary_union(dilated_polys)
@@ -125,7 +145,7 @@ class Region :
                         valid_geoms.append(poly)     
 
                 if not valid_geoms:
-                    return None 
+                    return MultiPolygon([]) 
                 
                 elif len(valid_geoms) == 1:
                     return valid_geoms[0] 
@@ -139,19 +159,19 @@ class Region :
                 if final_shape.area >= stp.REGION_MIN_AREA:  
                     return final_shape
 
-                return None
+                return MultiPolygon([])
             
         #------------------------------
-        else :
+        elif(method == stp.A_SHAPE) :
 
             all_contour_points = []
 
             for fib in self.fibers:
                 pts = (fib.contour).reshape(-1, 2)
-                all_contour_points.append(pts[::stp.STEP])
+                all_contour_points.append(pts[::stp.POINT_STEP])
 
             if not all_contour_points:
-                return None
+                return MultiPolygon([])
 
             points = np.vstack(all_contour_points)
 
@@ -188,18 +208,24 @@ class Region :
                 raise ValueError(f"Error while computing alphashape: {e}")
     
     #================================================================================#
-    def add_fiber(self, n_fib : Fiber.Fiber = None, n_fibers : list[Fiber.Fiber] = None):
+    def add_fiber(self, n_fibers : list[Fiber.Fiber] | Fiber.Fiber = None):
 
-        if n_fibers :
-            for fib in n_fibers:
-                (self.fibers).append(fib)
+        """
+        allows to manualy add Fibers in a regions
 
-        elif n_fib:
-            (self.fibers).append(n_fib)
-
-        else :
-            raise ValueError(f"n_fib and n_fibers are both None : n_fib = {n_fib}, n_fibers = {n_fibers} impossible to add fib")
+        n_fibers: list of Fiber or a simple Fiber
+        """
         
+        #------------------------------
+
+        if n_fibers is None:
+            return
+        
+        if not isinstance(n_fibers, list):
+            fibers = [n_fibers]
+
+        (self.fibers).extend(fibers)
+
         self.mean_angle   = self.compute_angle(compute_mean=True)
         self.median_angle = self.compute_angle()
 
@@ -208,6 +234,14 @@ class Region :
     #============================================================================================================================#
     def render_shape(self, img : np.ndarray, n_config_path : str = None) -> None:
         
+        """
+        rendering of the shape of the Region
+
+        img : image on wich we draw the shape
+        n_config_path : path to te configuration file
+        """
+
+        #------------------------------
         if(self.shape == None):
             raise ValueError(f"render_shape() Region.py line 155 : self.shape is empty")
         
@@ -231,18 +265,39 @@ class Region :
         else:
             color = tools.angle_to_color(self.mean_angle)
 
-        shape_cnt = []
-        
-        for poly in shape_list:
-            cnt = tools.shapely_to_opencv(poly)
-            if cnt is not None:
-                shape_cnt.append(cnt)
+        #------------------------------
+        if(not os.path.exists(self.shape_file)):
 
-        cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
+            shape_cnt = []
+            for poly in shape_list:
+                cnt = tools.shapely_to_opencv(poly)
+                if cnt is not None:
+                    shape_cnt.append(cnt)
+
+            cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
+
+        #------------------------------
+        else:
+
+            roi     = roifile.ImagejRoi.fromfile(self.shape_file)
+            points  = roi.coordinates()
+            points  = np.array(points, dtype=np.int32)
+
+            cnt = points.reshape((-1, 1, 2))
+
+            cv.drawContours(img, [cnt], -1, color, thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
 
     #================================================================================#
     def render_fibers(self, img : np.ndarray, n_config_path : str) -> None:
 
+        """
+        render all the fiber of the Rgion contained in self.fibers
+
+        img : image on wich we draw the shape
+        n_config_path : path to te configuration file
+        """
+        
+        #------------------------------
         if(len(self.fibers) == 0):
             return
         
@@ -252,10 +307,19 @@ class Region :
                        n_config_path=n_config_path)
 
     #================================================================================#
-    def render(self, img : np.ndarray, 
+    def render(self, 
+               img : np.ndarray, 
                n_config_path : str,
                render_type : int = stp.DRAW_FIBER) -> np.ndarray:
         
+        """
+        global rendering function for a region
+
+        img : image on wich we draw the shape
+        n_config_path : path to te configuration file
+        render_type : wanted type of render 
+        """
+
         #------------------------------
         if(render_type == stp.DRAW_FIBER):
             self.render_fibers(img, n_config_path)
@@ -279,13 +343,18 @@ class Region :
     #================================================================================#
     def print(self):
 
+        """
+        print all the data of the region
+        """
+
+        #------------------------------
         print(f"#========== {self.name} ==========#")
         print(f"split index      = {self.split_index}")
 
         print(f"mean angle       = {self.mean_angle}")
         print(f"median angle     = {self.median_angle}")
 
-        if(self.shape != []):
+        if(self.shape != [] or self.shape != None):
             print(f"shape            = {self.shape.geom_type}")
 
         print(f"fibers.len       = {len(self.fibers)}")
@@ -295,6 +364,12 @@ class Region :
     #================================================================================#
     def save(self, n_regions_path : str):
 
+        """
+        allows to save the Region in .roi format compatible with ImageJ
+
+        n_regions_path : path to the directory in wich the Region wille be saved 
+        """
+        
         #------------------------------
         if self.shape is None :
             raise ValueError("save() Regions.py line 206 : shape is empty")
@@ -308,7 +383,7 @@ class Region :
         #------------------------------
         ext_count = 0
         for poly in geoms:
-
+            
             points_ext      = list(poly.exterior.coords)
             
             roi_ext         = roifile.ImagejRoi.frompoints(points_ext)
@@ -318,8 +393,8 @@ class Region :
             filename_ext    = f"{self.name}_cnt_{ext_count}_ext.roi"
             roi_ext.tofile(os.path.join(n_regions_path, filename_ext))
 
-            int_count = 0
             #---------------
+            int_count = 0
             for hole in poly.interiors:
 
                 hole_area = Polygon(hole).area                
@@ -345,6 +420,13 @@ class Region :
 @staticmethod
 def merge_regions(regions : list[Region]):
 
+    """
+    allows to merge regions
+
+    regions : list of regions to merge
+    """
+
+    #------------------------------
     all_fib = []
     for reg in regions:
 

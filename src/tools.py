@@ -4,7 +4,6 @@
 import os
 import shutil
 import json
-import colorsys
 import re
 import numpy as np
 import cv2 as cv
@@ -16,7 +15,12 @@ import setup as stp
 #-------------------------------------------------------- FUNCTION ----------------------------------------------------------#
 #============================================================================================================================#
 def angle_to_color(angle : float):
- 
+
+    """
+    compute a unique color associated to angle
+    """
+
+    #------------------------------
     hue = int(angle % 180)
     hsv = np.uint8([[[hue, 255, 255]]])
     bgr_px = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)[0][0]
@@ -26,6 +30,12 @@ def angle_to_color(angle : float):
 #================================================================================#
 def get_color(angle : float, n_config_path : str):
     
+    """
+    retun a color associated to angle from a colors configuration file
+
+    n_config_path : path to the colors configuration file
+    """
+    #------------------------------
     if(os.path.exists(n_config_path)):
         
         with open(n_config_path, "r") as f:
@@ -56,8 +66,15 @@ def get_color(angle : float, n_config_path : str):
         return
     
 #================================================================================#
-def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
+def clear_folder(folder_path):
 
+    """
+    clear completely a directory 
+
+    folder_path :  path of the folder to clear
+    """
+
+    #------------------------------
     for item in os.listdir(folder_path):
         
         item_path = os.path.join(folder_path, item)
@@ -75,6 +92,11 @@ def clear_folder(folder_path, extension=stp.OUTPUT_EXTENSION):
 #================================================================================#
 def shapely_to_opencv(polygon):
 
+    """
+    convert a Shapely object to an OpenCV object 
+    """
+
+    #------------------------------
     if polygon.is_empty:
         return None
 
@@ -90,6 +112,14 @@ def get_peaks(angles : list[float],
               min_peak_height = 5, 
               sigma_smoth = 2.0) -> list[float]:
     
+    """
+    return a list of the peak angles in a list of angles
+
+    angles          : list[float] 
+    min_peak_height : minimun occurces to be considerate as a peak
+    sigma_smoth     : smooth factor to compute the histogramme
+    """
+
     #------------------------------
     if len(angles) == 0:
         return []
@@ -159,7 +189,7 @@ def get_peaks(angles : list[float],
             d2 = stp.MAX_ANGLE - d1
             d  = min(d1, d2)
             
-            if d <= stp.DELTA_ANGLE:
+            if d < stp.DELTA_ANGLE:
                 if hist_real[next_peak] > hist_real[current_peak]:
                     current_peak = next_peak
             else:
@@ -188,6 +218,11 @@ def get_peaks(angles : list[float],
 #================================================================================#
 def img_empty(img):
 
+    """
+    return True if img is empty or do not exists
+    """
+    
+    #------------------------------
     if img is None:
         return True
     
@@ -198,35 +233,16 @@ def img_empty(img):
 
 #================================================================================#
 def extract_number(path):
+
     match = re.search(r'_(\d+)', path)
     if match:
         return int(match.group(1)) 
     return 0
 
 #================================================================================#
-def f_pass(x):
-    pass
-
-#================================================================================#
 def is_pow_2(n):
     return((n and (n-1)) == 0)
 
 #================================================================================#
-def interactive_th(img_blur, f_pass=f_pass):
-    
-    cv.namedWindow('Thresh settings')
-    cv.createTrackbar('Thresh', 'Thresh settings', 100, 255, f_pass)
-
-    while True:
-
-        thresh_val = cv.getTrackbarPos('Thresh', 'Thresh settings')
-        (ret, img_bw )= cv.threshold(img_blur, thresh_val, stp.TH_MAX, cv.THRESH_TOZERO)
-        cv.imshow('Thresh settings', img_bw)
-        
-        if cv.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cv.destroyAllWindows()
-    print(f"Selecterd value for thresh : {thresh_val}")
-
-    return(thresh_val, img_bw)
+def f_pass(x):
+    pass
