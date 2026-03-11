@@ -1,12 +1,12 @@
-# --------------- PSYN --------------- #
+# PSYN #
 
 PSYN stand for Projet de SYNthèse is an academic project which is based on image analysis for application on composites materials.
 The studied material is called HexTOOL, it's made by Hexcel Composites​. 
 This material exhibits certain local variations in the orientation of its fibres, so the aim of the project is to automate the delineation of regions of interest (ROI) contained in the different samples.
 
-# -------------- Usage --------------- #
+# Usage #
 
-## --- Installation --- ##
+## Installation ##
 We recommand to create a python virtual environment in order to use the script. ([text](https://docs.python.org/fr/3.9/library/venv.html))
 The sample's directories need to named as sample_id (exemple : sample_25) and located in ./data/.
 Moreover this project requires a lot of different library which are listed in requirement.txt
@@ -19,7 +19,7 @@ Moreover this project requires a lot of different library which are listed in re
 
 - python ./src/main.py
 
-## --- Configuration file --- ##
+## Configuration file ##
 
 In the ./config/ directory the config.json file is the input files which defines the main parameters :
 
@@ -67,7 +67,7 @@ In the ./config/ directory the config.json file is the input files which defines
 
 — background : defines the rendering background (black, white, real).
 
-# -------------- TO DO --------------- #
+# TO DO #
 
 - Debug holes render
 - fix .zip/.roi files nomenclature 
