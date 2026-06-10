@@ -280,10 +280,10 @@ class Sample :
                   thresh_method : int = stp.CLASSIC_THRESH):
 
         """
-        Thresholding of the different splits, the function do both blur and thresh
+        Thresholding of the different splits, the function does both blur and thresh
 
-        blur_method : tell the wanted blur method (default : cv.GaussianBlur())
-        thresh_method : tell the wanted thresh method (default : cv.threshold())
+        blur_method : wanted blur method (default : cv.GaussianBlur())
+        thresh_method : wanted thresh method (default : cv.threshold())
         """
 
         #------------------------------
