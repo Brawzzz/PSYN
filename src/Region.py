@@ -38,6 +38,12 @@ class Region :
 
         self.name           = stp.REGION_ + str(int(self.mean_angle))
 
+        self.nb_fibers          = len(self.fibers)
+        self.mean_fibers_len    = self.compute_mean_fibers_len()
+        self.mean_fibers_width  = self.compute_mean_fibers_width()
+        self.area               = 0.0
+        self.centroid           = (-1, -1)
+
     #================================================================================#
     def set_fibers(self, n_fibers : list[Fiber.Fiber]) -> None:
         
@@ -206,6 +212,34 @@ class Region :
 
             except Exception as e:
                 raise ValueError(f"Error while computing alphashape: {e}")
+    
+    #================================================================================#
+    def compute_mean_fibers_len(self):
+
+        mean = 0
+        for fib in self.fibers:
+            mean += fib.length 
+
+        if(self.nb_fibers != 0):
+            self.mean_fibers_len = mean / self.nb_fibers
+        else:
+            self.mean_fibers_len = -1.0
+
+        return self.mean_fibers_len
+    
+    #================================================================================#
+    def compute_mean_fibers_width(self):
+
+        mean = 0
+        for fib in self.fibers:
+            mean += fib.width
+
+        if(self.nb_fibers != 0):
+            self.mean_fibers_width = mean / self.nb_fibers
+        else:
+            self.mean_fibers_width = -1.0
+
+        return self.mean_fibers_width
     
     #================================================================================#
     def add_fiber(self, n_fibers : list[Fiber.Fiber] | Fiber.Fiber = None):

@@ -62,6 +62,7 @@ class Sample :
         self.main_angles                   = []
         self.splits  : list[Split.Split]   = [] 
         self.regions : list[Region.Region] = [] 
+        self.regions_data                  = []
 
     #================================================================================#
     def set_path(self, n_fret=False):
@@ -432,11 +433,29 @@ class Sample :
 
             for reg in self.regions:
 
-                reg.shape = reg.compute_shape(method=stp.SHAPE_METHOD) 
+                reg.shape       = reg.compute_shape(method=stp.SHAPE_METHOD)  
+                reg.area        = reg.shape.area
+                reg.centroid    = (reg.shape.centroid.x,reg.shape.centroid.y)
                 pbar.update(1)
         
         return
     
+    #================================================================================#
+    def get_statistics(self, filename=None, graph=False):
+
+        for reg in self.regions:
+
+            reg_data = (reg.mean_angle, 
+                        reg.nb_fibers, 
+                        reg.mean_fibers_len,
+                        reg.mean_fibers_width,
+                        reg.area,
+                        reg.centroid)
+            
+            self.regions_data.append(reg_data)
+
+        return(self.regions_data)
+
     #================================================================================#
     def save_config(self) -> None:
 
@@ -559,8 +578,8 @@ class Sample :
         if(region):
             print(f"\n#=================== SAMPLE {self.id} ====================#\n")
 
-            for reg in self.regions:
-                reg.print()
+            for reg_data in self.regions_data :
+                print(reg_data)
 
             print(f"#==================================================#\n")
 
@@ -597,12 +616,13 @@ class Sample :
                 if reg.shape == None:
 
                     pbar.update(1)
-
                     continue
-
+                
                 reg.save(n_regions_path=self.regions_path)
                 pbar.update(1)
 
+        self.get_statistics()
+        
 #============================================================================================================================#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
 #============================================================================================================================#

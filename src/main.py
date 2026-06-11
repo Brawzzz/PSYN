@@ -41,7 +41,7 @@ sample.group_regions()
 sample.global_shape()
 
 sample.save()
-sample.print()
+sample.print(region=True)
 
 regions_img = sample.render(n_render=stp.RENDER)
 cv.imwrite(sample.output_path + sample.name + "_regions_all.png", regions_img)
