@@ -7,8 +7,11 @@ import json
 import re
 import numpy as np
 import cv2 as cv
+import argparse as ap
 
 import setup as stp
+
+from importlib.resources import files
 
 
 #============================================================================================================================#
@@ -66,18 +69,22 @@ def get_color(angle : float, n_config_path : str):
         return
     
 #================================================================================#
-def clear_folder(folder_path):
+def clear_folder(folder_path, except_files = ["./output/hxtl_p25_pre/data/"]):
 
     """
-    clear completely a directory 
+    clear completely a directory exectpted files or folders in execept_files 
 
     folder_path :  path of the folder to clear
     """
 
     #------------------------------
+    except_files = [os.path.normpath(p) for p in except_files]
     for item in os.listdir(folder_path):
         
-        item_path = os.path.join(folder_path, item)
+        item_path = os.path.normpath(os.path.join(folder_path, item))
+
+        if item_path in except_files :
+            continue
 
         try:
             if os.path.isfile(item_path) or os.path.islink(item_path):
@@ -87,7 +94,66 @@ def clear_folder(folder_path):
                 shutil.rmtree(item_path)
                 
         except Exception as e:
-            print(f"Impossible dto remove {item_path} : {e}")
+            print(f"Impossible to remove {item_path} : {e}")
+
+#================================================================================#
+def arg_parse():
+
+    """
+    argparse est beaucoup plus puissant. Il gère les types (int, float), 
+    les paramètres optionnels (--), et génère un menu d'aide (-h).
+    Exemple : python cli_arguments.py mon_image.png --config param.json --verbose
+    """
+
+    parser = ap.ArgumentParser(description="Outil d'analyse de fibres HexTool.")
+
+    #--------------- MANDATORY ARGS ---------------#
+    # parser.add_argument("image_path", type=str, help="Le chemin vers l'image à analyser")
+
+    #--------------- OPTIONAL ARGS ----------------#
+    parser.add_argument("-c", "--config", type=str, default="./config/config.json", 
+                        help="path to to the wanted configuration file")
+    
+    args = parser.parse_args()
+
+    print(f"\n#--------------- config file path  : {args.config} ---------------#")
+
+    return args.config
+
+#================================================================================#
+def compute_row_col(n : int) -> tuple[int, int]:
+    
+    """
+    compute and set the row/col attributes
+
+    n : number of split 
+    """
+
+    #------------------------------
+    MIN_COL = 12
+
+    if(n == 1):
+        row = 1
+        col = 1
+        return(row, col)
+    
+    elif(n <= MIN_COL):
+
+        row = 2
+        col = int(n / row)
+        return(row, col)
+    
+    else :
+
+        row = 2
+        col = int(n / row)
+
+        while(col % 2 == 0 and col > MIN_COL):
+
+            row *= 2
+            col = int(col / 2)        
+
+        return(row, col)
 
 #================================================================================#
 def shapely_to_opencv(polygon):

@@ -4,6 +4,8 @@
 import os
 import glob
 import json
+import copy
+import roifile
 import cv2 as cv
 import numpy as np
 
@@ -45,9 +47,11 @@ class Sample :
         self.output_path    = ""
         self.splits_path    = ""
         self.regions_path   = ""
+        self.data_path      = ""
         
         self.fretting       = None 
-        self.config         = "" 
+        self.given_config   = None
+        self.saving_config  = "" 
 
         #------------------------------
         if(n_split % 2 != 0):
@@ -55,7 +59,7 @@ class Sample :
                 raise ValueError(f"__init__() Sample.py line 29 : nb_split must be even : nb_split = {n_split}")
         
         self.nb_split           = n_split
-        (self.row, self.col)    = self.compute_row_col(self.nb_split)
+        (self.row, self.col)    = tools.compute_row_col(self.nb_split)
         self.process_split      = self.nb_split
 
         #------------------------------
@@ -89,10 +93,11 @@ class Sample :
         self.output_path    = stp.OUTPUT_PATH + self.name + "/"
         self.splits_path    = self.output_path + "splits/"
         self.regions_path   = self.output_path + "regions/"
+        self.data_path      = self.output_path + "data/"
 
-        date_str        = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
-        config_suffix   = "_config_" + date_str + ".json" 
-        self.config     = os.path.join(self.output_path, self.name + config_suffix)
+        date_str            = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+        config_suffix       = "_config_" + date_str + ".json" 
+        self.saving_config  = os.path.join(self.output_path, self.name + config_suffix)
 
     #================================================================================#
     def load_img(self):
@@ -112,39 +117,8 @@ class Sample :
             self.img = cv.imread(self.img_path, cv.IMREAD_GRAYSCALE)
 
     #================================================================================#
-    def compute_row_col(self, n : int) -> tuple[int, int]:
-        
-        """
-        compute and set the row/col attributes
-
-        n : number of split 
-        """
-
-        #------------------------------
-        MIN_COL = 12
-
-        if(n == 1):
-            row = 1
-            col = 1
-            return(row, col)
-        
-        elif(n <= MIN_COL):
-
-            row = 2
-            col = int(n / row)
-            return(row, col)
-        
-        else :
-
-            row = 2
-            col = int(n / row)
-
-            while(col % 2 == 0 and col > MIN_COL):
-
-                row *= 2
-                col = int(col / 2)        
-
-            return(row, col)
+    def copy(self):
+        return copy.deepcopy(self)
         
     #================================================================================#
     def split(self, save : bool = True):
@@ -274,7 +248,7 @@ class Sample :
 
         else:
             raise ValueError(f"join() Sample.py line 213 : vstack error {strip}")    
-        
+
     #================================================================================#
     def tresh_img(self,
                   blur_method   : int = stp.GAUSSIAN_BLUR,
@@ -422,7 +396,7 @@ class Sample :
             return regions
     
     #================================================================================#
-    def global_shape(self) -> None:
+    def compute_shapes(self) -> None:
 
         """
         compute the shape attributes of each global regions in self.regions
@@ -435,13 +409,13 @@ class Sample :
 
                 reg.shape       = reg.compute_shape(method=stp.SHAPE_METHOD)  
                 reg.area        = reg.shape.area
-                reg.centroid    = (reg.shape.centroid.x,reg.shape.centroid.y)
+                reg.centroid    = (reg.shape.centroid.x, reg.shape.centroid.y)
                 pbar.update(1)
         
         return
     
     #================================================================================#
-    def get_statistics(self, filename=None, graph=False):
+    def get_statistics(self, n_save=False, graph=False):
 
         for reg in self.regions:
 
@@ -450,11 +424,56 @@ class Sample :
                         reg.mean_fibers_len,
                         reg.mean_fibers_width,
                         reg.area,
-                        reg.centroid)
+                        reg.centroid[0],
+                        reg.centroid[1])
             
             self.regions_data.append(reg_data)
 
+        #------------------------------
+        with open(f"{self.data_path}regions_data_{stp.CONFIG}.csv", "w") as f:
+
+            f.write("index,mean_angle, nb_fibers, mean_fibers_len, mean_fibers_width, area, centroid_x, centroid_y\n")
+            for reg_data in self.regions_data:
+                f.write(f"{int(reg_data[0])}, {reg_data[1]}, {reg_data[2]}, {reg_data[3]}, {reg_data[4]}, {reg_data[5]}, {reg_data[6]}\n")
+
         return(self.regions_data)
+    
+    #================================================================================#
+    def get_roi(self, n_regions_path=None) -> list[np.ndarray]:
+
+        """
+        Return all the sample's regions as Numpy arrays formatted for OpenCV (N, 1, 2) in int32.
+        The function load the .roi files from self.regions_path.
+        """
+
+        #------------------------------
+        if n_regions_path is not None:
+            roi_files = glob.glob(os.path.join(n_regions_path, "*.roi"))
+        else:
+            roi_files = glob.glob(os.path.join(self.regions_path, "*.roi"))
+
+        roi_files = sorted(roi_files, key=tools.extract_number)
+
+        if not roi_files:
+            raise ValueError(f"get_roi() Sample.py : no .roi file found in {self.regions_path}")
+
+        #------------------------------
+        regions = []
+        for roi_file in tqdm(roi_files, desc="Loading ROI           ", unit="reg"):
+            
+            #---------------
+            if not os.path.exists(roi_file):
+                raise ValueError(f"get_roi() Sample.py : {roi_file} does not exist")
+
+            roi         = roifile.ImagejRoi.fromfile(roi_file)
+            coords      = roi.coordinates()
+            roi_array   = np.array(coords, dtype=np.int32).reshape((-1, 1, 2))
+
+            regions.append(roi_array)
+
+        self.regions = regions
+
+        return regions
 
     #================================================================================#
     def save_config(self) -> None:
@@ -515,10 +534,10 @@ class Sample :
         }
         
         #------------------------------
-        with open(self.config, "w", encoding="utf-8") as f:
+        with open(self.saving_config, "w", encoding="utf-8") as f:
 
             final_json = {
-                "description": self.name + " Config",
+                "description": self.name + " config : " + self.given_config,
                 "params": params,
                 "colors": color_config
             }
@@ -540,30 +559,32 @@ class Sample :
         if render_splits:
 
             for split in tqdm(self.splits, desc="Rendering            ", unit="img"):
-                split.save(self.config)
+                split.save(self.saving_config)
         
         #------------------------------
         else:
 
             if(stp.BACKGROUND == -1):
-                regions_img = cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)
+                all_regions_img = cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)
             else:
-                regions_img = np.ones_like(cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)) * stp.BACKGROUND
+                all_regions_img = np.ones_like(cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)) * stp.BACKGROUND
 
             #---------------
             for reg in tqdm(self.regions, desc="Rendering regions     ", unit="img") :
-
+                
+                #----------
                 if(stp.BACKGROUND == -1):
-                    reg_img = cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)
+                    single_reg_img = cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)
                 else:
-                    reg_img = np.ones_like(cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)) * stp.BACKGROUND
+                    single_reg_img = np.ones_like(cv.cvtColor(self.img, cv.COLOR_GRAY2RGB)) * stp.BACKGROUND
 
-                regions_img = reg.render(regions_img, n_config_path=self.config, render_type=n_render)   
-                reg_img     = reg.render(reg_img, n_config_path=self.config, render_type=n_render)   
+                #----------
+                all_regions_img = reg.render(all_regions_img, n_config_path=self.saving_config, render_type=n_render)   
+                single_reg_img  = reg.render(single_reg_img, n_config_path=self.saving_config, render_type=n_render)   
 
-                cv.imwrite(self.regions_path + self.name + "_region_" + str(int(reg.mean_angle)) + ".png", reg_img)
+                cv.imwrite(self.regions_path + self.name + "_region_" + str(int(reg.mean_angle)) + ".png", single_reg_img)
 
-            return regions_img
+            return all_regions_img
         
     #================================================================================#
     def print(self, region=False):
@@ -577,7 +598,7 @@ class Sample :
         #------------------------------
         if(region):
             print(f"\n#=================== SAMPLE {self.id} ====================#\n")
-
+            print("mean_angle, nb_fibers, mean_fibers_len, mean_fibers_width, area, centroid_position\n")
             for reg_data in self.regions_data :
                 print(reg_data)
 
@@ -602,7 +623,7 @@ class Sample :
             print(f"#==================================================#\n")
 
     #================================================================================#
-    def save(self):
+    def save(self, n_regions_path=None) -> None:
         
         """
         save all the Region in self.regions[]
@@ -614,34 +635,45 @@ class Sample :
             for reg in self.regions:
                 
                 if reg.shape == None:
-
                     pbar.update(1)
                     continue
                 
-                reg.save(n_regions_path=self.regions_path)
+                #---------------
+                if n_regions_path is not None:
+                    reg.save(n_regions_path=n_regions_path)
+                else:
+                    reg.save(n_regions_path=self.regions_path)
+                
                 pbar.update(1)
 
-        self.get_statistics()
+        self.get_statistics(n_save=True)
         
 #============================================================================================================================#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
 #============================================================================================================================#
-def init(n_id : int, n_split : int = 8, n_fret = False) -> Sample:
+def init(config_path=f"./config/config.json", n_fret = False) -> Sample:
 
     """
     initialisation of a Sample
 
-    n_split : indicates the desired number of splits
-    n_fret  : indicates whether the study is before of after thr fretting
+    config_path : path to the configuration file
+    n_fret      : indicates whether the study is before of after thr fretting
     """
     
+    stp.get_config(config_path=config_path)
+    
     #------------------------------
-    sample = Sample(n_id, n_split=n_split)
+    sample = Sample(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
+
+    sample.given_config = config_path
     sample.set_path(n_fret=n_fret)
 
     #------------------------------
     if(os.path.exists(sample.output_path)):
-        tools.clear_folder(sample.output_path)
+
+        exception_files = [sample.data_path]
+        tools.clear_folder(sample.output_path, except_files=exception_files)
+
     else:
         os.makedirs(sample.output_path, exist_ok=True)
 
@@ -655,5 +687,6 @@ def init(n_id : int, n_split : int = 8, n_fret = False) -> Sample:
                      thresh_method=stp.THRESH_METHOD)
 
     os.makedirs(sample.regions_path, exist_ok=True)
+    os.makedirs(sample.data_path, exist_ok=True)
 
     return sample

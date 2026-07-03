@@ -2,6 +2,8 @@ import json
 import cv2 as cv
 
 
+CONFIG =  "config_0.2"
+
 #================================================================================#
 def get_config(config_path : str = "./config/config.json"):
 
