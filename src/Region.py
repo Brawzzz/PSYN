@@ -29,7 +29,7 @@ class Region :
         self.split_index    = n_split_index
 
         self.fibers         = self.set_fibers(n_fibers)
-
+        
         self.mean_angle     = self.compute_angle()
         self.median_angle   = self.compute_angle(compute_mean=False)
 
@@ -70,7 +70,7 @@ class Region :
         """
         compute the global angle of a Region.
 
-        compute_mean : if true return the mean angle else return the median angle
+        :params compute_mean: if true return the mean angle else return the median angle
         """
         
         #------------------------------
@@ -106,7 +106,7 @@ class Region :
         """
         compute the shape of the Region
 
-        method : defines the wanted method to compute the shape (alphashape, morph ...)
+        :params method: defines the wanted method to compute the shape (alphashape, morph ...)
         """
         
         #------------------------------
@@ -216,6 +216,11 @@ class Region :
     #================================================================================#
     def compute_mean_fibers_len(self):
 
+        """
+        compute the mean length of the fibers in the Region
+        """
+
+        #------------------------------
         mean = 0
         for fib in self.fibers:
             mean += fib.length 
@@ -230,6 +235,11 @@ class Region :
     #================================================================================#
     def compute_mean_fibers_width(self):
 
+        """
+        compute the mean width of the fibers in the Region
+        """
+
+        #------------------------------
         mean = 0
         for fib in self.fibers:
             mean += fib.width
@@ -247,7 +257,7 @@ class Region :
         """
         allows to manualy add Fibers in a regions
 
-        n_fibers: list of Fiber or a simple Fiber
+        :params n_fibers: list of Fiber or a simple Fiber
         """
         
         #------------------------------
@@ -271,8 +281,8 @@ class Region :
         """
         rendering of the shape of the Region
 
-        img : image on wich we draw the shape
-        n_config_path : path to te configuration file
+        :params img:            image on wich we draw the shape
+        :params n_config_path:  path to the configuration file
         """
 
         #------------------------------
@@ -304,11 +314,9 @@ class Region :
 
             shape_cnt = []
             for poly in shape_list:
-                cnt = tools.shapely_to_opencv(poly)
-                if cnt is not None:
-                    shape_cnt.append(cnt)
+                shape_cnt.extend(tools.shapely_to_opencv(poly))
 
-            cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
+            cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
 
         #------------------------------
         else:
@@ -327,8 +335,8 @@ class Region :
         """
         render all the fiber of the Rgion contained in self.fibers
 
-        img : image on wich we draw the shape
-        n_config_path : path to te configuration file
+        :params img:            image on wich we draw the shape
+        :params n_config_path:  path to the configuration file
         """
         
         #------------------------------
@@ -349,9 +357,9 @@ class Region :
         """
         global rendering function for a region
 
-        img : image on wich we draw the shape
-        n_config_path : path to te configuration file
-        render_type : wanted type of render 
+        :params img:             image on wich we draw the shape
+        :params n_config_path:   path to the configuration file
+        :params render_type:     wanted type of render 
         """
 
         #------------------------------
@@ -401,7 +409,7 @@ class Region :
         """
         allows to save the Region in .roi format compatible with ImageJ
 
-        n_regions_path : path to the directory in wich the Region wille be saved 
+        :params n_regions_path:  path to the directory in wich the Region wille be saved 
         """
         
         #------------------------------
@@ -457,7 +465,7 @@ def merge_regions(regions : list[Region]):
     """
     allows to merge regions
 
-    regions : list of regions to merge
+    :params regions:    list of regions to merge
     """
 
     #------------------------------

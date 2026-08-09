@@ -21,6 +21,7 @@ __status__  = "Development"
 #============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
 #============================================================================================================================#
+import time
 import cv2 as cv
 import numpy as np
 
@@ -34,6 +35,8 @@ import tools
 #============================================================================================================================#
 config = tools.arg_parse()
 
+START = time.perf_counter()
+
 sample = Sample.init(config_path=config, n_fret=False)
 sample.process_splits()
 sample.save_config()
@@ -46,6 +49,11 @@ sample.print(region=False)
 
 regions_img = sample.render(n_render=stp.RENDER)
 cv.imwrite(sample.output_path + sample.name + "_regions_all.png", regions_img)
+
+END = time.perf_counter()
+
+executio_time = END - START
+print(f"\nExecution time : {executio_time:.4f} seconds")
 
 #------------------------------
 # sample_cpy  = sample.copy()

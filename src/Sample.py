@@ -30,9 +30,9 @@ class Sample :
 
     It is defined by mainly :
 
-    n_id    : the id of the sample (exemple : 22, 23, 24, 25) 
-    img     : the image from the tribological study
-    regions : a list of Region instaces from the image analysis
+    :params n_id:       the id of the sample (exemple : 22, 23, 24, 25)
+    :params img:        the image from the tribological study
+    :params regions:    a list of Region instances from the image analysis
     """
 
     #------------------------------
@@ -74,7 +74,7 @@ class Sample :
         """
         Set the different path needed for a Sample
 
-        n_fret : True if running affter fretting
+        :params n_fret: True if running after fretting
         """
 
         #------------------------------
@@ -126,8 +126,7 @@ class Sample :
         """
         split the sample in a list of Split object
 
-        save : if true it saves the correspondind split's image otherwise 
-               it return a list containing all the splits images (default : true)
+        :params save: if true it saves the correspondind split's image otherwise it return a list containing all the splits images (default : true)
         """
 
         #------------------------------
@@ -255,13 +254,19 @@ class Sample :
                   thresh_method : int = stp.CLASSIC_THRESH):
 
         """
-        Thresholding of the different splits, the function do both blur and thresh
+        Threshold each Splits, the function do both blur and thresh
 
-        blur_method : tell the wanted blur method (default : cv.GaussianBlur())
-        thresh_method : tell the wanted thresh method (default : cv.threshold())
+        :params blur_method:    tell the wanted blur method (default : cv.GaussianBlur())
+        :params thresh_method:  tell the wanted thresh method (default : cv.threshold())
         """
 
         #------------------------------
+
+        STD_MIN            = 12                               
+        global_blur        = cv.GaussianBlur(self.img, stp.KERNEL_SIZE, 0)
+        (global_thresh, _) = cv.threshold(global_blur, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+
+
         with tqdm(total=self.process_split, desc="Thresholding images  ", unit="itm") as pbar:
                                                  
             #------------------------------
@@ -283,7 +288,12 @@ class Sample :
 
                 #---------------
                 if(thresh_method == stp.CLASSIC_THRESH):
-                    (_, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, stp.THRESH_TYPE)
+
+                    if img_blur.std() < STD_MIN:
+                        (_, img_bw) = cv.threshold(img_blur, global_thresh, stp.TH_MAX, cv.THRESH_BINARY)
+                        
+                    else:
+                        (_, img_bw) = cv.threshold(img_blur, stp.TH_MIN, stp.TH_MAX, stp.THRESH_TYPE)
 
                 else:
                     img_bw = cv.adaptiveThreshold(
@@ -302,98 +312,121 @@ class Sample :
                 pbar.update(1)
 
     #================================================================================#
+    def build_full_mask(self, heal_seams: bool = True, save: bool = True) -> np.ndarray:
+
+        """
+        Assemble binary threshold masks (split.thresh_path) into a
+        single full-size mask
+        Fibers can be detected once -- in global coordinates
+
+        :params heal_seams:    light morphological close to reconnect a fiber that a threshold
+        :params save:          if true it saves the full mask otherwise it return it (default : true)
+        """
+
+        #------------------------------
+        if not self.splits:
+            raise ValueError("build_full_mask() : self.splits is empty (call split() first)")
+
+        if len(self.splits) % self.col != 0:
+            raise ValueError(f"build_full_mask() : nb splits ({len(self.splits)}) not a multiple of col ({self.col})")
+
+        #------------------------------
+        strips = []
+        for r in range(0, len(self.splits), self.col):
+
+            row_tiles = []
+            for split in self.splits[r : r + self.col]:
+
+                tile = cv.imread(split.thresh_path, cv.IMREAD_GRAYSCALE)
+
+                if tools.img_empty(tile):
+                    raise ValueError(f"build_full_mask() : missing mask {split.thresh_path}")
+                
+                row_tiles.append(tile)
+
+            strips.append(np.hstack(row_tiles))
+
+        full_mask = np.vstack(strips)
+
+        #------------------------------
+        if heal_seams:
+            kernel    = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+            full_mask = cv.morphologyEx(full_mask, cv.MORPH_CLOSE, kernel)
+
+        if save:
+            cv.imwrite(self.output_path + self.name + "_full_mask" + stp.OUTPUT_EXTENSION, full_mask)
+
+        return full_mask
+
+    #================================================================================#
     def process_splits(self):
-        
+
         """
-        process the split : detection / seltion of fiber
+        Detect every fiber once, on the full reassembled mask, then group them by
+        orientation. 
         """
-        
-        #------------------------------  
-        with tqdm(total=self.process_split, desc="Processing split     ", unit="itm") as pbar:
-            
-            for split in self.splits :
-                                                        
-                fibers          = Fiber.detect_fibers(split.thresh_path)
-                sorted_fibers   = Fiber.group_fibers(fibers)
 
-                #------------------------------
-                for i in range(len(sorted_fibers)):
+        #------------------------------
+        full_mask = self.build_full_mask(heal_seams=False)
+        fibers    = Fiber.detect_fibers(full_mask)
 
-                    reg_i = Region.Region(n_fibers = sorted_fibers[i], n_split_index = split.id)
-                    if(reg_i.mean_angle != -1):
-                        (split.regions).append(reg_i)
+        #------------------------------ 
+        sorted_fibers = Fiber.group_fibers(fibers)
 
-                self.regions = self.regions + split.regions
+        self.regions = []
+        for group in sorted_fibers:
 
-                pbar.update(1)
+            reg = Region.Region(n_fibers=group, n_split_index=-1)
+            if reg.mean_angle != -1:
+                self.regions.append(reg)
 
-        angles           = [reg.mean_angle for reg in self.regions]    
+        #------------------------------
+        angles           = [reg.mean_angle for reg in self.regions]
         self.main_angles = tools.get_peaks(angles, min_peak_height=0, sigma_smoth=2)
 
     #================================================================================#
     def group_regions(self):
 
         """
-        Classify all the fiber depending on their angles
+        Merge regions of similar orientation into one region per main-angle peak.
         """
-        
+
         #------------------------------
-        regions_group = {idx : [] for idx in self.main_angles}
+        regions_group = {idx: [] for idx in self.main_angles}
 
         for reg in self.regions:
 
-            ang         = reg.mean_angle
-            best_peak   = -1
-            min_dist    = float('inf')
+            best_peak = -1
+            min_dist  = float('inf')
 
             for peak in self.main_angles:
-                
-                d1 = abs(peak - ang)
+
+                d1 = abs(peak - reg.mean_angle)
                 d2 = stp.MAX_ANGLE - d1
                 d  = min(d1, d2)
 
-                if(d < min_dist):
-
-                    min_dist = d
+                if d < min_dist:
+                    min_dist  = d
                     best_peak = peak
 
-            if(min_dist <= stp.DELTA_ANGLE):
+            if min_dist <= stp.DELTA_ANGLE:
                 regions_group[best_peak].append(reg)
 
         #------------------------------
         regions = []
-
         with tqdm(total=len(regions_group), desc="Computing global regions ", unit="reg") as pbar:
 
-            for peak in regions_group: 
-                
-                group        : list[Region.Region] = regions_group[peak]
-                mapped_group : list[Region.Region] = [] 
+            for peak, group in regions_group.items():
 
-                #---------------
-                for reg in group:
-                    
-                    current_split = self.splits[reg.split_index]
-
-                    mapped_fibers : list[Fiber.Fiber] = []
-                    for fib in reg.fibers:
-                        mapped_fib = fib.map_fiber(current_split) 
-                        mapped_fibers.append(mapped_fib)
-
-                    mapped_reg = Region.Region(mapped_fibers, n_split_index=-1)
-                    mapped_group.append(mapped_reg)
-
-                #---------------
-                region_peak = Region.merge_regions(mapped_group)
-
-                if(len(region_peak.fibers) > stp.REGION_MIN_FIBER):
-                    regions.append(region_peak)
+                if group:
+                    region_peak = Region.merge_regions(group)   
+                    if len(region_peak.fibers) > stp.REGION_MIN_FIBER:
+                        regions.append(region_peak)
 
                 pbar.update(1)
-                
-            self.regions = regions
 
-            return regions
+        self.regions = regions
+        return regions
     
     #================================================================================#
     def compute_shapes(self) -> None:
@@ -415,8 +448,16 @@ class Sample :
         return
     
     #================================================================================#
-    def get_statistics(self, n_save=False, graph=False):
+    def get_data(self, n_save=False, graph=False):
 
+        """
+        compute the data of each global regions in self.regions and save it in a csv file
+
+        :params n_save: if true it saves the data in a csv file otherwise it return it (default : false)
+        :params graph:  if true it display a graph of the data (default : false)
+        """
+
+        #------------------------------
         for reg in self.regions:
 
             reg_data = (reg.mean_angle, 
@@ -444,6 +485,10 @@ class Sample :
         """
         Return all the sample's regions as Numpy arrays formatted for OpenCV (N, 1, 2) in int32.
         The function load the .roi files from self.regions_path.
+
+        :params n_regions_path: if not None, load the .roi files from this path instead of self.regions_path
+
+        :return: list of Numpy arrays representing the regions
         """
 
         #------------------------------
@@ -481,7 +526,7 @@ class Sample :
         """
         configuration file as an output summary of the params used for a particular run
 
-        file name : sample.name + JJ_MM_AAAA_HH_MIN_S .json (exemple : hxtl_p25_pre_config_26_02_2026_13_51_51.json)
+        :params file name: sample.name + JJ_MM_AAAA_HH_MIN_S .json (exemple : hxtl_p25_pre_config_26_02_2026_13_51_51.json)
         """
         
         #------------------------------
@@ -551,8 +596,10 @@ class Sample :
         render of all the regions in self.regions
         create a file for each region and return an image containing all th contours 
 
-        n_render : indicates the desired rendering type 
-        render_split : if true do the render on each spilt of self.splits
+        :params n_render:       indicates the desired rendering type 
+        :params render_splits:  if true do the render on each split of self.splits
+
+        :return: image containing all the contours of the regions
         """
         
         #------------------------------
@@ -592,7 +639,7 @@ class Sample :
         """
         print all the informations about a Sample 
 
-        region : if true print the information about all the Regions in self.regions[]
+        :params region: if true print the information about all the Regions in self.regions[]
         """
         
         #------------------------------
@@ -626,7 +673,9 @@ class Sample :
     def save(self, n_regions_path=None) -> None:
         
         """
-        save all the Region in self.regions[]
+        save all the Region in self.regions[] in .roi format
+
+        :params n_regions_path: if not None, save the .roi files in this path instead of self.regions_path
         """
 
         #------------------------------
@@ -646,7 +695,8 @@ class Sample :
                 
                 pbar.update(1)
 
-        self.get_statistics(n_save=True)
+        #---------------
+        self.get_data(n_save=True)
         
 #============================================================================================================================#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#
@@ -656,13 +706,13 @@ def init(config_path=f"./config/config.json", n_fret = False) -> Sample:
     """
     initialisation of a Sample
 
-    config_path : path to the configuration file
-    n_fret      : indicates whether the study is before of after thr fretting
+    :params config_path:    path to the configuration file
+    :params n_fret:         indicates whether the study is before or after fretting
     """
-    
+
+    #------------------------------
     stp.get_config(config_path=config_path)
     
-    #------------------------------
     sample = Sample(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
 
     sample.given_config = config_path

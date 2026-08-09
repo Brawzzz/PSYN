@@ -10,13 +10,13 @@ def get_config(config_path : str = "./config/config.json"):
     """
     set up all the necessary parameters from configuration file
 
-    config_path : path to the wanted configuration file
+    :params: config_path: path to the wanted configuration file
     """
     
     #------------------------------
     global SAMPLE_INDEX, NB_SPLIT, BLUR_METHOD, THRESH_METHOD, SHAPE_METHOD
     global FIBRE_PERIMETER_MIN, FIBER_LEN_MIN, FIBER_WIDTH_MAX, FIBER_RATIO_MIN
-    global REGION_MIN_FIBER, REGION_MIN_AREA, HOLE_MIN_AREA
+    global REGION_MIN_FIBER, REGION_MIN_SUPPORT, REGION_MIN_AREA, HOLE_MIN_AREA
     global DELTA_ANGLE, R_DILATE, R_ERODE, ALPHA, POINT_STEP
     global RENDER, FILL_SHAPE, SHAPE_THICKNESS, FIB_THICHNESS, BACKGROUND
     global THRESH_STR, BLUR_STR, SHAPE_STR, RENDER_STR
@@ -77,6 +77,7 @@ def get_config(config_path : str = "./config/config.json"):
         FIBER_RATIO_MIN     = params["fiber_ratio_min"]
 
         REGION_MIN_FIBER    = params["region_min_fiber"]
+        REGION_MIN_SUPPORT  = params["region_min_support"]
         REGION_MIN_AREA     = params["region_min_area"]
         HOLE_MIN_AREA       = params["hole_min_area"]
 
@@ -193,6 +194,7 @@ FIBER_WIDTH_MAX     = 20
 FIBER_RATIO_MIN     = 2
 
 REGION_MIN_FIBER    = 100
+REGION_MIN_SUPPORT  = 10000
 REGION_MIN_AREA     = 300000
 HOLE_MIN_AREA       = 25000
 

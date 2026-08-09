@@ -100,9 +100,9 @@ def clear_folder(folder_path, except_files = ["./output/hxtl_p25_pre/data/"]):
 def arg_parse():
 
     """
-    argparse est beaucoup plus puissant. Il gère les types (int, float), 
-    les paramètres optionnels (--), et génère un menu d'aide (-h).
-    Exemple : python cli_arguments.py mon_image.png --config param.json --verbose
+    get the path to the configuration file from the command line arguments
+
+    :return: args.config
     """
 
     parser = ap.ArgumentParser(description="Outil d'analyse de fibres HexTool.")
@@ -126,7 +126,9 @@ def compute_row_col(n : int) -> tuple[int, int]:
     """
     compute and set the row/col attributes
 
-    n : number of split 
+    :params: n number of split 
+
+    :return: (row, col) row and col to display the splits
     """
 
     #------------------------------
@@ -160,18 +162,24 @@ def shapely_to_opencv(polygon):
 
     """
     convert a Shapely object to an OpenCV object 
+
+    :params: polygon a Shapely object
+
+    :return: contours list of OpenCV contours
     """
 
     #------------------------------
     if polygon.is_empty:
-        return None
+        return []
 
-    (x, y) = polygon.exterior.coords.xy
+    rings = [polygon.exterior] + list(polygon.interiors)
 
-    points = np.array([ [int(xi), int(yi)] for xi, yi in zip(x, y) ], dtype=np.int32)
-    points = points.reshape((-1, 1, 2))
+    contours = []
+    for ring in rings:
+        pts = np.array([[int(x), int(y)] for x, y in ring.coords], dtype=np.int32)
+        contours.append(pts.reshape((-1, 1, 2)))
 
-    return points
+    return contours
 
 #================================================================================#
 def get_peaks(angles : list[float], 
@@ -179,11 +187,13 @@ def get_peaks(angles : list[float],
               sigma_smoth = 2.0) -> list[float]:
     
     """
-    return a list of the peak angles in a list of angles
+    compute the peaks angles in a list of angles
 
-    angles          : list[float] 
-    min_peak_height : minimun occurces to be considerate as a peak
-    sigma_smoth     : smooth factor to compute the histogramme
+    :params:    angles          : list[float] 
+    :params:    min_peak_height : minimun occurces to be considerate as a peak
+    :params:    sigma_smoth     : smooth factor to compute the histogramme
+
+    :return: list[float] : list of peaks angles
     """
 
     #------------------------------
