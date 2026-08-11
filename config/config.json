@@ -16,6 +16,7 @@
         "fiber_ratio_min"       : 2,
 
         "region_min_fiber"      : 100,
+        "region_min_support"    : 500000,
         "region_min_area"       : 500000,
         "hole_min_area"         : 100000,
 

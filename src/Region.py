@@ -26,24 +26,23 @@ class Region :
 
     def __init__(self, n_fibers : list[Fiber.Fiber], n_split_index : int):
         
-        self.split_index    = n_split_index
+        self.split_index        = n_split_index
 
-        self.fibers         = self.set_fibers(n_fibers)
-        
-        self.mean_angle     = self.compute_angle()
-        self.median_angle   = self.compute_angle(compute_mean=False)
-
-        self.shape          = []
-        self.shape_file     = ""
-
-        self.name           = stp.REGION_ + str(int(self.mean_angle))
-
+        self.fibers             = self.set_fibers(n_fibers)
         self.nb_fibers          = len(self.fibers)
+
         self.mean_fibers_len    = self.compute_mean_fibers_len()
         self.mean_fibers_width  = self.compute_mean_fibers_width()
+            
+        self.mean_angle         = self.compute_angle()
+        self.median_angle       = self.compute_angle(compute_mean=False)
+
+        self.shape              = []
         self.area               = 0.0
         self.centroid           = (-1, -1)
+        self.shape_file         = ""
 
+        self.name               = stp.REGION_ + str(int(self.mean_angle))
     #================================================================================#
     def set_fibers(self, n_fibers : list[Fiber.Fiber]) -> None:
         
@@ -101,7 +100,7 @@ class Region :
             return np.mean(angles) if compute_mean else np.median(angles)  
         
     #================================================================================#
-    def compute_shape(self, method : int = 0):
+    def compute_shape(self, method : int = 0) -> Polygon | MultiPolygon :
 
         """
         compute the shape of the Region

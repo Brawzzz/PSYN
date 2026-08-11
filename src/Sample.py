@@ -50,7 +50,7 @@ class Sample :
         self.data_path      = ""
         
         self.fretting       = None 
-        self.given_config   = None
+        self.params_config  = None
         self.saving_config  = "" 
 
         #------------------------------
@@ -312,7 +312,7 @@ class Sample :
                 pbar.update(1)
 
     #================================================================================#
-    def build_full_mask(self, heal_seams: bool = True, save: bool = True) -> np.ndarray:
+    def full_mask(self, heal_seams: bool = True, save: bool = True) -> np.ndarray:
 
         """
         Assemble binary threshold masks (split.thresh_path) into a
@@ -325,10 +325,10 @@ class Sample :
 
         #------------------------------
         if not self.splits:
-            raise ValueError("build_full_mask() : self.splits is empty (call split() first)")
+            raise ValueError("full_mask() : self.splits is empty (call split() first)")
 
         if len(self.splits) % self.col != 0:
-            raise ValueError(f"build_full_mask() : nb splits ({len(self.splits)}) not a multiple of col ({self.col})")
+            raise ValueError(f"full_mask() : nb splits ({len(self.splits)}) not a multiple of col ({self.col})")
 
         #------------------------------
         strips = []
@@ -340,7 +340,7 @@ class Sample :
                 tile = cv.imread(split.thresh_path, cv.IMREAD_GRAYSCALE)
 
                 if tools.img_empty(tile):
-                    raise ValueError(f"build_full_mask() : missing mask {split.thresh_path}")
+                    raise ValueError(f"full_mask() : missing mask {split.thresh_path}")
                 
                 row_tiles.append(tile)
 
@@ -367,7 +367,7 @@ class Sample :
         """
 
         #------------------------------
-        full_mask = self.build_full_mask(heal_seams=False)
+        full_mask = self.full_mask(heal_seams=False)
         fibers    = Fiber.detect_fibers(full_mask)
 
         #------------------------------ 
@@ -443,6 +443,7 @@ class Sample :
                 reg.shape       = reg.compute_shape(method=stp.SHAPE_METHOD)  
                 reg.area        = reg.shape.area
                 reg.centroid    = (reg.shape.centroid.x, reg.shape.centroid.y)
+                
                 pbar.update(1)
         
         return
@@ -582,7 +583,7 @@ class Sample :
         with open(self.saving_config, "w", encoding="utf-8") as f:
 
             final_json = {
-                "description": self.name + " config : " + self.given_config,
+                "description": self.name + " config : " + self.params_config,
                 "params": params,
                 "colors": color_config
             }
@@ -715,7 +716,7 @@ def init(config_path=f"./config/config.json", n_fret = False) -> Sample:
     
     sample = Sample(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT)
 
-    sample.given_config = config_path
+    sample.params_config = config_path
     sample.set_path(n_fret=n_fret)
 
     #------------------------------
