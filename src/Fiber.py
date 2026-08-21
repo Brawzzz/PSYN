@@ -1,6 +1,7 @@
 #============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
 #============================================================================================================================#
+import tqdm
 import numpy as np
 import cv2 as cv
 
@@ -220,7 +221,7 @@ def group_support(fibers : list[Fiber]) -> float:
 def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
     """
-    create group of fiber of similar orientation
+    create group of fiber with similar orientation
 
     :params n_fibers: list of Fiber
     """
@@ -234,26 +235,30 @@ def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
     #------------------------------
     sorted_groups = {idx : [] for idx in peaks_index}
-    
-    for fib in n_fibers:
 
-        ang = fib.angle
-        
-        best_peak = -1
-        min_dist = float('inf')
+    with tqdm.tqdm(total=len(n_fibers), desc="Grouping fibers       ", unit="fib") as pbar:
 
-        for peak in peaks_index:
+        for fib in n_fibers:
+
+            ang = fib.angle
             
-            d1 = abs(ang - peak)
-            d2 = stp.MAX_ANGLE - d1
-            d  = min(d1, d2)
+            best_peak = -1
+            min_dist = float('inf')
+
+            for peak in peaks_index:
+                
+                d1 = abs(ang - peak)
+                d2 = stp.MAX_ANGLE - d1
+                d  = min(d1, d2)
+                
+                if d < min_dist:
+                    min_dist = d
+                    best_peak = peak
             
-            if d < min_dist:
-                min_dist = d
-                best_peak = peak
-        
-        if(min_dist <= stp.DELTA_ANGLE):
-            sorted_groups[best_peak].append(fib)
+            if(min_dist <= stp.DELTA_ANGLE):
+                sorted_groups[best_peak].append(fib)
+
+            pbar.update(1)
 
     #------------------------------   
     result = []
@@ -261,7 +266,7 @@ def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
         group = sorted_groups[peak]
 
-        print(f"Group {peak} : {len(group)} fibers, support = {group_support(group)}")
+        # print(f"Group {peak} : {len(group)} fibers, support = {group_support(group)}")
         
         if group_support(group) > stp.REGION_MIN_SUPPORT:
             result.append(group)
