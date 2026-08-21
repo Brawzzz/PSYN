@@ -222,7 +222,7 @@ def group_support(fibers : list[Fiber]) -> float:
 def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
     """
-    create group of fiber of similar orientation
+    create group of fiber with similar orientation
 
     :params n_fibers: list of Fiber
     """
@@ -237,7 +237,7 @@ def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
     #------------------------------
     sorted_groups = {idx : [] for idx in peaks_index}
 
-    with tqdm(total=len(n_fibers), desc="Computing fibers group ", unit="fib") as pbar:
+    with tqdm.tqdm(total=len(n_fibers), desc="Grouping fibers       ", unit="fib") as pbar:
 
         for fib in n_fibers:
 

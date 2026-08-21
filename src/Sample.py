@@ -359,24 +359,27 @@ class Sample :
         return full_mask
 
     #================================================================================#
-    def process_splits(self):
+    def process_sample(self):
 
         """
-        Detect every fiber once, on the full reassembled mask, then group them by
-        orientation. 
+        This function process a sample by :
+            - detecting every fiber (on the full reassembled mask)
+            - computing group of fibers classified by orientation. 
         """
 
         #------------------------------
         full_mask = self.full_mask(heal_seams=False)
         fibers    = Fiber.detect_fibers(full_mask)
 
-        #------------------------------ 
-        sorted_fibers = Fiber.group_fibers(fibers)
+        fibers          = Fiber.detect_fibers(full_mask)
+        sorted_fibers   = Fiber.group_fibers(fibers)
 
+        #------------------------------
         self.regions = []
         for group in sorted_fibers:
 
             reg = Region.Region(n_fibers=group, n_split_index=-1)
+            
             if reg.mean_angle != -1:
                 self.regions.append(reg)
 

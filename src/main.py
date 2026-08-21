@@ -38,12 +38,12 @@ config = tools.arg_parse()
 START = time.perf_counter()
 
 sample = Sample.init(config_path=config, n_fret=False)
-sample.process_splits()
-sample.save_config()
 
+sample.process_sample()
 sample.group_regions()
 sample.compute_shapes()
 
+sample.save_config()
 sample.save()
 sample.print(region=False)
 
