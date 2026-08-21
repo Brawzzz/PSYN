@@ -369,8 +369,7 @@ class Sample :
 
         #------------------------------
         full_mask = self.full_mask(heal_seams=False)
-        fibers    = Fiber.detect_fibers(full_mask)
-
+        
         fibers          = Fiber.detect_fibers(full_mask)
         sorted_fibers   = Fiber.group_fibers(fibers)
 
