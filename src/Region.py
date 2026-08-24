@@ -144,11 +144,13 @@ class Region :
                 valid_geoms = []
                 geoms = list(final_shape.geoms)
 
+                #---------------
                 for poly in geoms:
 
                     if poly.area >= stp.REGION_MIN_AREA:
                         valid_geoms.append(poly)     
 
+                #---------------
                 if not valid_geoms:
                     return MultiPolygon([]) 
                 
