@@ -37,12 +37,12 @@ class Region :
         self.mean_angle         = self.compute_angle()
         self.median_angle       = self.compute_angle(compute_mean=False)
 
-        self.shape              = []
+        self.shapes             = []
         self.area               = 0.0
-        self.centroid           = (-1, -1)
         self.shape_file         = ""
 
         self.name               = stp.REGION_ + str(int(self.mean_angle))
+
     #================================================================================#
     def set_fibers(self, n_fibers : list[Fiber.Fiber]) -> None:
         
@@ -100,7 +100,7 @@ class Region :
             return np.mean(angles) if compute_mean else np.median(angles)  
         
     #================================================================================#
-    def compute_shape(self, method : int = 0) -> Polygon | MultiPolygon :
+    def compute_boundaries(self, method : int = 0) -> Polygon | MultiPolygon :
 
         """
         compute the shape of the Region
@@ -110,7 +110,7 @@ class Region :
         
         #------------------------------
         if(len(self.fibers) == 0):
-            raise ValueError("compute_shape() in Region.py line 52 : self.fibers is empty")
+            raise ValueError("compute_boundaries() in Region.py line 52 : self.fibers is empty")
         
         #------------------------------
         if(method == stp.MORPH):
@@ -280,21 +280,21 @@ class Region :
     def render_shape(self, img : np.ndarray, n_config_path : str = None) -> None:
         
         """
-        rendering of the shape of the Region
+        rendering of the shapes of the Region
 
         :params img:            image on wich we draw the shape
         :params n_config_path:  path to the configuration file
         """
 
         #------------------------------
-        if(self.shape == None):
-            raise ValueError(f"render_shape() Region.py line 155 : self.shape is empty")
+        if(self.shapes == None):
+            raise ValueError(f"render_shape() Region.py line 155 : self.shapes is empty")
         
-        if self.shape.geom_type == 'Polygon':
-            shape_list = [self.shape]
+        if self.shapes.geom_type == 'Polygon':
+            shape_list = [self.shapes]
 
-        elif self.shape.geom_type == 'MultiPolygon':
-            shape_list = list(self.shape.geoms)
+        elif self.shapes.geom_type == 'MultiPolygon':
+            shape_list = list(self.shapes.geoms)
             
         else:
             return
@@ -397,8 +397,8 @@ class Region :
         print(f"mean angle       = {self.mean_angle}")
         print(f"median angle     = {self.median_angle}")
 
-        if(self.shape != [] or self.shape != None):
-            print(f"shape            = {self.shape.geom_type}")
+        if(self.shapes != [] or self.shapes != None):
+            print(f"shape            = {self.shapes.geom_type}")
 
         print(f"fibers.len       = {len(self.fibers)}")
         print(f"#================================#")
@@ -414,14 +414,14 @@ class Region :
         """
         
         #------------------------------
-        if self.shape is None :
+        if self.shapes is None :
             raise ValueError("save() Regions.py line 206 : shape is empty")
         
-        if self.shape.geom_type == 'Polygon':
-            geoms = [self.shape]
+        if self.shapes.geom_type == 'Polygon':
+            geoms = [self.shapes]
 
-        elif self.shape.geom_type == 'MultiPolygon':
-            geoms = list(self.shape.geoms)
+        elif self.shapes.geom_type == 'MultiPolygon':
+            geoms = list(self.shapes.geoms)
         
         #------------------------------
         ext_count = 0
