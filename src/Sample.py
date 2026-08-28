@@ -11,9 +11,11 @@ import numpy as np
 
 from tqdm import tqdm
 from datetime import datetime
+from shapely import Point, Polygon, unary_union
 
 import Fiber
 import Region
+import Shape
 import Split
 
 import tools
@@ -64,7 +66,9 @@ class Sample :
 
         #------------------------------
         self.main_angles                   = []
+
         self.splits  : list[Split.Split]   = [] 
+
         self.regions : list[Region.Region] = [] 
         self.regions_data                  = []
 
@@ -387,10 +391,12 @@ class Sample :
         self.main_angles = tools.get_peaks(angles, min_peak_height=0, sigma_smoth=2)
 
     #================================================================================#
-    def group_regions(self):
+    def group_regions(self) -> list[Region.Region]:
 
         """
         Merge regions of similar orientation into one region per main-angle peak.
+
+        :return region: list of new regions
         """
 
         #------------------------------
@@ -429,25 +435,110 @@ class Sample :
 
         self.regions = regions
         return regions
-    
+
+    #================================================================================#
+    def resolve_overlaps(self):
+
+        """
+        Vérifie les chevauchements entre toutes les shapes.
+        Rogne les shapes moins denses et met à jour les objets existants.
+        """
+        
+        #------------------------------
+        all_shapes_info = []
+
+        for reg in self.regions:
+            for shape in reg.shapes:
+
+                all_shapes_info.append({"region": reg, "shape": shape})
+        
+        #------------------------------
+        all_shapes_info.sort(key=lambda item: item["shape"].density, reverse=True)
+        
+        for reg in self.regions:
+            reg.shapes  = []
+            reg.area    = 0.0 
+            
+        global_mask = Polygon() 
+
+        #------------------------------
+        with tqdm(total=len(all_shapes_info), desc="Resolving overlaps   ", unit="shape") as pbar:
+            
+            for item in all_shapes_info:
+
+                reg             = item["region"]
+                current_shape   = item["shape"]
+                poly            = current_shape.polygon
+                
+                #---------------
+                if not global_mask.is_empty:
+                    poly = poly.difference(global_mask).buffer(0) 
+                
+                #---------------
+                if poly.is_empty:
+                    pbar.update(1)
+                    continue
+                    
+                #---------------
+                valid_geoms = []
+
+                if poly.geom_type == 'Polygon':
+                    valid_geoms = [poly]
+
+                elif poly.geom_type == 'MultiPolygon':
+                    valid_geoms = [geom for geom in poly.geoms if geom.area >= stp.SHAPE_MIN_AREA]
+                
+                if not valid_geoms:
+                    pbar.update(1)
+                    continue
+
+                #------------------------------
+                first_geom      = valid_geoms[0]
+                first_fibers    = [fib for fib in reg.fibers if first_geom.contains(Point(fib.position))]
+                
+                current_shape.update(first_geom, first_fibers)
+                
+                reg.shapes.append(current_shape)
+                reg.area += current_shape.area
+                global_mask = unary_union([global_mask, first_geom])
+                
+                #------------------------------
+                if len(valid_geoms) > 1:
+
+                    for extra_geom in valid_geoms[1:]:
+
+                        extra_fibers = [fib for fib in reg.fibers if extra_geom.contains(Point(fib.position))]
+                        
+                        new_shape = Shape.Shape(extra_geom, extra_fibers, reg.mean_angle)
+                        
+                        reg.shapes.append(new_shape)
+                        reg.area += new_shape.area
+                        global_mask = unary_union([global_mask, extra_geom])
+                
+                pbar.update(1)
+
     #================================================================================#
     def compute_shapes(self) -> None:
 
         """
-        compute the shape attributes of each global regions in self.regions
+        compute the shapes attributes of each global regions in self.regions
         """
         
         #------------------------------
-        with tqdm(total=len(self.regions), desc="Computing global shapes  ", unit="reg") as pbar:
+        with tqdm(total=len(self.regions), desc="Computing Regions boundaries  ", unit="reg") as pbar:
 
             for reg in self.regions:
 
-                reg.shape       = reg.compute_shape(method=stp.SHAPE_METHOD)  
-                reg.area        = reg.shape.area
-                reg.centroid    = (reg.shape.centroid.x, reg.shape.centroid.y)
+                reg_boudaries  = reg.compute_boundaries(method=stp.SHAPE_METHOD) 
+                reg.shapes     = Shape.set_shapes(reg_boudaries, reg.fibers, reg.mean_angle)
+        
+                for shape in reg.shapes :
+                    reg.area += shape.polygon.area
                 
                 pbar.update(1)
-        
+
+        self.resolve_overlaps()
+
         return
     
     #================================================================================#
@@ -467,9 +558,7 @@ class Sample :
                         reg.nb_fibers, 
                         reg.mean_fibers_len,
                         reg.mean_fibers_width,
-                        reg.area,
-                        reg.centroid[0],
-                        reg.centroid[1])
+                        reg.area)
             
             self.regions_data.append(reg_data)
 
@@ -478,7 +567,7 @@ class Sample :
 
             f.write("index,mean_angle, nb_fibers, mean_fibers_len, mean_fibers_width, area, centroid_x, centroid_y\n")
             for reg_data in self.regions_data:
-                f.write(f"{int(reg_data[0])}, {reg_data[1]}, {reg_data[2]}, {reg_data[3]}, {reg_data[4]}, {reg_data[5]}, {reg_data[6]}\n")
+                f.write(f"{int(reg_data[0])}, {reg_data[1]}, {reg_data[2]}, {reg_data[3]}, {reg_data[4]}\n")
 
         return(self.regions_data)
     
@@ -545,6 +634,7 @@ class Sample :
 
         #------------------------------
         params = {
+            
             "nb_split"        : stp.NB_SPLIT,
 
             "delta_angle"     : stp.DELTA_ANGLE,
@@ -563,9 +653,9 @@ class Sample :
 
             "tresh_type"            : stp.THRESH_TYPE_STR,
 
-            "region_min_fiber": stp.REGION_MIN_FIBER,
-            "region_min_area" : stp.REGION_MIN_AREA, 
-            "hole_min_area"   : stp.HOLE_MIN_AREA, 
+            "region_min_fiber"  : stp.REGION_MIN_FIBER,
+            "shape_min_area"    : stp.SHAPE_MIN_AREA, 
+            "hole_min_area"     : stp.HOLE_MIN_AREA, 
 
             "dbscan_eps"         : stp.DBSCAN_EPS,
             "dbscan_min_samples" : stp.DBSCAN_MIN_SAMPLES,
@@ -686,7 +776,7 @@ class Sample :
                                                 
             for reg in self.regions:
                 
-                if reg.shape == None:
+                if reg.shapes == None:
                     pbar.update(1)
                     continue
                 

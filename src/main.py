@@ -45,19 +45,14 @@ sample.process_sample()
 sample.group_regions()
 sample.compute_shapes()
 
-reg = sample.regions[0]
-for shape in reg.shapes :
-
-    shape.render(img=sample.img, n_config_path=config)
+#---------------
+sample.save_config()
+sample.save()
+sample.print(region=False)
 
 #---------------
-# sample.save_config()
-# sample.save()
-# sample.print(region=False)
-
-#---------------
-# regions_img = sample.render(n_render=stp.RENDER)
-# cv.imwrite(sample.output_path + sample.name + "_regions_all.png", regions_img)
+regions_img = sample.render(n_render=stp.RENDER)
+cv.imwrite(sample.output_path + sample.name + "_regions_all.png", regions_img)
 
 #---------------
 END  = time.perf_counter()
