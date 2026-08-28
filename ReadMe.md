@@ -43,7 +43,7 @@ In the ./config/ directory the config.json file is the input files which defines
 
 — region_min_fiber : minimum number of fibers required to consider a region as valid.
 
-— region_min_area : minimum area (in pixels) for a region to be valid.
+— shape_min_area : minimum area (in pixels) for a region's shape to be valid.
 
 — hole_min_area : minimum area (in pixels) for a "hole" to be considered valid.
 
