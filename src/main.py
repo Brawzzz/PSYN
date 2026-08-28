@@ -21,29 +21,50 @@ __status__  = "Development"
 #============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
 #============================================================================================================================#
+import time
 import cv2 as cv
 import numpy as np
 
 import Sample
 import setup as stp
+import tools
 
 
 #============================================================================================================================#
 #---------------------------------------------------------- MAIN ------------------------------------------------------------#
 #============================================================================================================================#
-stp.get_config()
+config = tools.arg_parse()
 
-sample = Sample.init(stp.SAMPLE_INDEX, n_split=stp.NB_SPLIT, n_fret=False)
-sample.process_splits()
-sample.save_config()
+#------------------------------
+START = time.perf_counter()
 
+#---------------
+sample = Sample.init(config_path=config, n_fret=False)
+
+sample.process_sample()
 sample.group_regions()
-sample.global_shape()
+sample.compute_shapes()
 
+#---------------
+sample.save_config()
 sample.save()
-sample.print()
+sample.print(region=False)
 
+#---------------
 regions_img = sample.render(n_render=stp.RENDER)
 cv.imwrite(sample.output_path + sample.name + "_regions_all.png", regions_img)
+
+#---------------
+END  = time.perf_counter()
+TIME = END - START
+print(f"\nExecution time : {TIME:.4f} seconds")
+
+#------------------------------
+# sample_cpy  = sample.copy()
+# regions     = sample_cpy.get_roi(n_regions_path="./data/sample_25/before_fretting/RoiSet_p25_pre/")
+
+# img_col = cv.cvtColor(sample.img, cv.COLOR_GRAY2RGB)
+# cv.drawContours(image=img_col, contours=regions, contourIdx=-1, color=(0, 255, 0), thickness=25)
+# cv.imwrite("./output/2022/result_2022_regions.png", img_col)
 
 print("\n")

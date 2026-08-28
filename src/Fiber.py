@@ -1,6 +1,7 @@
 #============================================================================================================================#
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
 #============================================================================================================================#
+import tqdm
 import numpy as np
 import cv2 as cv
 
@@ -21,9 +22,9 @@ class Fiber:
     The Fiber class describe the fibers contained in the materail HexTool
     It is defined mainly by : 
 
-    contour : the contour ofvthe corresponding fiber in the image
-    oriented_box : a bonding bow ofv the contours which is oriented
-    angle : the angle of the fiber (0-180°)  
+    contour         : the contour ofvthe corresponding fiber in the image
+    oriented_box    : a bonding bow ofv the contours which is oriented
+    angle           : the angle of the fiber (0-180°)  
     """
 
     #------------------------------
@@ -82,8 +83,8 @@ class Fiber:
         """
 
         #------------------------------
-        if(self.perimeter > stp.FIBRE_PERIMETER_MIN and self.length >= stp.FIBER_LEN_MIN and 
-           self.width <= stp.FIBER_WIDTH_MAX and self.ratio > stp.FIBER_RATIO_MIN):
+        if(self.length >= stp.FIBER_LEN_MIN and self.width <= stp.FIBER_WIDTH_MAX and 
+           self.ratio > stp.FIBER_RATIO_MIN and self.perimeter > stp.FIBRE_PERIMETER_MIN):
             return True
         
         return False
@@ -92,10 +93,10 @@ class Fiber:
     def map_fiber(self, split : 'Split.Split'):
         
         """
-        allows to map fiber contour : pass the contour coordinates form the split basis to 
+        allows to map fiber contour, pass the contour coordinates form the split basis to 
         the complete image basis
 
-        split : fiber's split
+        :params: split fiber's split
         """
         
         #------------------------------
@@ -113,8 +114,9 @@ class Fiber:
         """
         render the contours of the Fiber on img
 
-        n_config_path : path of color configuration
-        reg_angle : angle of the fiber's region
+        :params img:              image on which to render the fiber
+        :params n_config_path:    path of color configuration
+        :params reg_angle:        angle of the fiber's region
         """
 
         #------------------------------
@@ -152,6 +154,7 @@ class Fiber:
 def fiber_angle(rect):
 
     """
+    return the orientation angle of a Fiber
     """
     
     (_, (w, h), angle) = rect
@@ -170,7 +173,7 @@ def select_fiber(n_fibers : list[Fiber]) -> list[Fiber]:
     """
     select ony the valid fiber in given list
 
-    n_fibers : list of Fiber
+    :params n_fibers: list of Fiber
     """
     
     #------------------------------
@@ -184,36 +187,44 @@ def select_fiber(n_fibers : list[Fiber]) -> list[Fiber]:
 
 #================================================================================#
 @staticmethod
-def detect_fibers(thresh_img_path : str) -> list[Fiber] : 
+def detect_fibers(thresh_img) -> list[Fiber]:
 
     """
-    allows to detect fiber in a threshold image
+    detect fibers in a threshold image
 
-    thresh_img_path : path to the threshold image on which we want to detect fibers
+    :params thresh_img: path to the threshold image, or the mask array itself
     """
-    
+
     #------------------------------
-    thresh_img      = cv.imread(thresh_img_path, cv.IMREAD_GRAYSCALE)
-    (contours, _)   = cv.findContours(thresh_img, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    if isinstance(thresh_img, str):
+        thresh_img = cv.imread(thresh_img, cv.IMREAD_GRAYSCALE)
 
-    fibers = []
-    for cnt in contours:
-        
-        fib = Fiber(cnt)
-        fibers.append(fib)
+    if tools.img_empty(thresh_img):
+        raise ValueError("detect_fibers() : empty threshold image")
 
-    fibers = select_fiber(fibers)
+    (contours, _) = cv.findContours(thresh_img, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    fibers = [Fiber(cnt) for cnt in contours]
 
-    return fibers
+    return (select_fiber(fibers))
 
+#================================================================================#
+@staticmethod
+def group_support(fibers : list[Fiber]) -> float:
+
+    """
+    Group's support : Total fibre length, in px.
+    Measures the amount of material that is actually oriented, unaffected by fragmentation.
+    """
+    return sum(fib.length for fib in fibers)
+    
 #================================================================================#
 @staticmethod
 def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
     """
-    create group of fiber of similar orientation
+    create group of fiber with similar orientation
 
-    n_fibers : list of Fiber
+    :params n_fibers: list of Fiber
     """
     
     #------------------------------
@@ -225,33 +236,40 @@ def group_fibers(n_fibers : list[Fiber]) -> list[list[Fiber]]:
 
     #------------------------------
     sorted_groups = {idx : [] for idx in peaks_index}
-    
-    for fib in n_fibers:
 
-        ang = fib.angle
-        
-        best_peak = -1
-        min_dist = float('inf')
+    with tqdm.tqdm(total=len(n_fibers), desc="Grouping fibers       ", unit="fib") as pbar:
 
-        for peak in peaks_index:
+        for fib in n_fibers:
+
+            ang = fib.angle
             
-            d1 = abs(ang - peak)
-            d2 = stp.MAX_ANGLE - d1
-            d  = min(d1, d2)
+            best_peak = -1
+            min_dist = float('inf')
+
+            for peak in peaks_index:
+                
+                d1 = abs(ang - peak)
+                d2 = stp.MAX_ANGLE - d1
+                d  = min(d1, d2)
+                
+                if d < min_dist:
+                    min_dist = d
+                    best_peak = peak
             
-            if d < min_dist:
-                min_dist = d
-                best_peak = peak
-        
-        if(min_dist <= stp.DELTA_ANGLE):
-            sorted_groups[best_peak].append(fib)
+            if(min_dist <= stp.DELTA_ANGLE):
+                sorted_groups[best_peak].append(fib)
+
+            pbar.update(1)
 
     #------------------------------   
     result = []
     for peak in sorted_groups:
+
         group = sorted_groups[peak]
 
-        if len(group) > stp.REGION_MIN_FIBER:
+        # print(f"Group {peak} : {len(group)} fibers, support = {group_support(group)}")
+        
+        if group_support(group) > stp.REGION_MIN_SUPPORT:
             result.append(group)
 
     return result

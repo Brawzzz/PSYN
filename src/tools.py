@@ -7,8 +7,11 @@ import json
 import re
 import numpy as np
 import cv2 as cv
+import argparse as ap
 
 import setup as stp
+
+from importlib.resources import files
 
 
 #============================================================================================================================#
@@ -66,18 +69,22 @@ def get_color(angle : float, n_config_path : str):
         return
     
 #================================================================================#
-def clear_folder(folder_path):
+def clear_folder(folder_path, except_files = ["./output/hxtl_p25_pre/data/"]):
 
     """
-    clear completely a directory 
+    clear completely a directory exectpted files or folders in execept_files 
 
     folder_path :  path of the folder to clear
     """
 
     #------------------------------
+    except_files = [os.path.normpath(p) for p in except_files]
     for item in os.listdir(folder_path):
         
-        item_path = os.path.join(folder_path, item)
+        item_path = os.path.normpath(os.path.join(folder_path, item))
+
+        if item_path in except_files :
+            continue
 
         try:
             if os.path.isfile(item_path) or os.path.islink(item_path):
@@ -87,25 +94,92 @@ def clear_folder(folder_path):
                 shutil.rmtree(item_path)
                 
         except Exception as e:
-            print(f"Impossible dto remove {item_path} : {e}")
+            print(f"Impossible to remove {item_path} : {e}")
+
+#================================================================================#
+def arg_parse():
+
+    """
+    get the path to the configuration file from the command line arguments
+
+    :return: args.config
+    """
+
+    parser = ap.ArgumentParser(description="Outil d'analyse de fibres HexTool.")
+
+    #--------------- MANDATORY ARGS ---------------#
+    # parser.add_argument("image_path", type=str, help="Le chemin vers l'image à analyser")
+
+    #--------------- OPTIONAL ARGS ----------------#
+    parser.add_argument("-c", "--config", type=str, default="./config/config.json", 
+                        help="path to to the wanted configuration file")
+    
+    args = parser.parse_args()
+
+    print(f"\n#--------------- config file path  : {args.config} ---------------#")
+
+    return args.config
+
+#================================================================================#
+def compute_row_col(n : int) -> tuple[int, int]:
+    
+    """
+    compute and set the row/col attributes
+
+    :params: n number of split 
+
+    :return: (row, col) row and col to display the splits
+    """
+
+    #------------------------------
+    MIN_COL = 12
+
+    if(n == 1):
+        row = 1
+        col = 1
+        return(row, col)
+    
+    elif(n <= MIN_COL):
+
+        row = 2
+        col = int(n / row)
+        return(row, col)
+    
+    else :
+
+        row = 2
+        col = int(n / row)
+
+        while(col % 2 == 0 and col > MIN_COL):
+
+            row *= 2
+            col = int(col / 2)        
+
+        return(row, col)
 
 #================================================================================#
 def shapely_to_opencv(polygon):
 
     """
     convert a Shapely object to an OpenCV object 
+
+    :params: polygon a Shapely object
+
+    :return: contours list of OpenCV contours
     """
 
     #------------------------------
     if polygon.is_empty:
-        return None
+        return []
 
-    (x, y) = polygon.exterior.coords.xy
+    rings = [polygon.exterior] + list(polygon.interiors)
 
-    points = np.array([ [int(xi), int(yi)] for xi, yi in zip(x, y) ], dtype=np.int32)
-    points = points.reshape((-1, 1, 2))
+    contours = []
+    for ring in rings:
+        pts = np.array([[int(x), int(y)] for x, y in ring.coords], dtype=np.int32)
+        contours.append(pts.reshape((-1, 1, 2)))
 
-    return points
+    return contours
 
 #================================================================================#
 def get_peaks(angles : list[float], 
@@ -113,11 +187,13 @@ def get_peaks(angles : list[float],
               sigma_smoth = 2.0) -> list[float]:
     
     """
-    return a list of the peak angles in a list of angles
+    compute the peaks angles in a list of angles
 
-    angles          : list[float] 
-    min_peak_height : minimun occurces to be considerate as a peak
-    sigma_smoth     : smooth factor to compute the histogramme
+    :params:    angles          : list[float] 
+    :params:    min_peak_height : minimun occurces to be considerate as a peak
+    :params:    sigma_smoth     : smooth factor to compute the histogramme
+
+    :return: list[float] : list of peaks angles
     """
 
     #------------------------------

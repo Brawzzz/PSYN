@@ -57,7 +57,7 @@ class Split:
         """
 
         #------------------------------ 
-        self.img_path = n_render_type
+        self.render = n_render_type
     
     #================================================================================#
     def print(self):
@@ -114,6 +114,6 @@ if __name__ == "__main__":
     id = 0
     sample_path = "./output/hxtl_p25_pre/"
 
-    split = Split(n_id=id, sample_path=sample_path)
+    split = Split(n_id=id, n_origin=(0, 0), n_sample_path=sample_path)
 
     split.print()

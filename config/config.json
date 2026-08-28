@@ -5,26 +5,27 @@
 
         "sample_index"          : "25",
         
-        "nb_split"              : 64,
+        "nb_split"              : 128,
         
         "blur_method"           : "BILATERAL",
         "thresh_method"         : "CLASSIC",
 
         "fiber_perimeter_min"   : 10,
         "fiber_len_min"         : 20,
-        "fiber_width_max"       : 20,
+        "fiber_width_max"       : 50,
         "fiber_ratio_min"       : 2,
 
         "region_min_fiber"      : 100,
-        "region_min_area"       : 500000,
-        "hole_min_area"         : 100000,
+        "region_min_support"    : 500000,
+        "shape_min_area"        : 100000,
+        "hole_min_area"         : 50000, 
 
-        "delta_angle"           : 8.85,
+        "delta_angle"           : 5,
         
         "shape_method"          : "MORPH",
 
-        "r_dilate"              : 400,
-        "r_erode"               : 350,
+        "r_dilate"              : 500,
+        "r_erode"               : 475,
 
         "alpha"                 : 0.0065,
         "point_step"            : 200
@@ -32,13 +33,13 @@
 
     "render_params":{
 
-        "render"            : "SHAPE",
+        "render"            : "FIBER_SHAPE",
 
         "fill_shape"        : false,
         "shape_thickness"   : 30,
         "fiber_thickness"   : 3,
 
-        "background"        : "b"
+        "background"        : "real"
     }
 
 }

@@ -26,17 +26,22 @@ class Region :
 
     def __init__(self, n_fibers : list[Fiber.Fiber], n_split_index : int):
         
-        self.split_index    = n_split_index
+        self.split_index        = n_split_index
 
-        self.fibers         = self.set_fibers(n_fibers)
+        self.fibers             = self.set_fibers(n_fibers)
+        self.nb_fibers          = len(self.fibers)
 
-        self.mean_angle     = self.compute_angle()
-        self.median_angle   = self.compute_angle(compute_mean=False)
+        self.mean_fibers_len    = self.compute_mean_fibers_len()
+        self.mean_fibers_width  = self.compute_mean_fibers_width()
+            
+        self.mean_angle         = self.compute_angle()
+        self.median_angle       = self.compute_angle(compute_mean=False)
 
-        self.shape          = []
-        self.shape_file     = ""
+        self.shapes             = []
+        self.area               = 0.0
+        self.shape_file         = ""
 
-        self.name           = stp.REGION_ + str(int(self.mean_angle))
+        self.name               = stp.REGION_ + str(int(self.mean_angle))
 
     #================================================================================#
     def set_fibers(self, n_fibers : list[Fiber.Fiber]) -> None:
@@ -64,7 +69,7 @@ class Region :
         """
         compute the global angle of a Region.
 
-        compute_mean : if true return the mean angle else return the median angle
+        :params compute_mean: if true return the mean angle else return the median angle
         """
         
         #------------------------------
@@ -93,119 +98,183 @@ class Region :
         #------------------------------
         else:
             return np.mean(angles) if compute_mean else np.median(angles)  
-        
+
     #================================================================================#
-    def compute_shape(self, method : int = 0):
+    def run_moph(self):
 
         """
-        compute the shape of the Region
+        function to run the morphological algorithm on region's fiber list
+        
+        :return boudaries: MultiPolygon object defining the region's boundaries
+        """
 
-        method : defines the wanted method to compute the shape (alphashape, morph ...)
+        #------------------------------
+        polygons = []
+        for fib in self.fibers:
+
+            pts = fib.contour.reshape(-1, 2) 
+
+            if len(pts) >= 3:
+
+                poly =  Polygon(pts)
+
+                if not poly.is_valid:
+                    poly = poly.buffer(0) 
+
+                if not poly.is_empty:
+                    polygons.append(poly)
+
+        #---------------
+        if not polygons:
+            return MultiPolygon([])
+
+        dilated_polys   = [p.buffer(stp.R_DILATE).buffer(0) for p in polygons]
+        merged_shape    = unary_union(dilated_polys)
+        final_shape     = merged_shape.buffer(stp.R_ERODE).buffer(0)
+        
+        #---------------
+        if(final_shape.geom_type == "MultiPolygon"):
+            
+            valid_geoms = []
+            geoms = list(final_shape.geoms)
+
+            #---------------
+            for poly in geoms:
+
+                if poly.area >= stp.SHAPE_MIN_AREA:
+                    valid_geoms.append(poly)     
+
+            #---------------
+            if not valid_geoms:
+                return MultiPolygon([]) 
+            
+            elif len(valid_geoms) == 1:
+                return valid_geoms[0] 
+            
+            else:
+                return MultiPolygon(valid_geoms)
+
+        #--------------- 
+        elif(final_shape.geom_type == "Polygon"):
+            
+            if final_shape.area >= stp.SHAPE_MIN_AREA:  
+                return final_shape
+
+            return MultiPolygon([])
+
+    #================================================================================#
+    def run_alphashape(self):
+
+        """
+        function to run the alphashape algorithm on region's fiber list
+
+        :return boudaries: MultiPolygon object defining the region's boundaries
+        """
+
+        #------------------------------
+        all_contour_points = []
+        
+        for fib in self.fibers:
+            pts = (fib.contour).reshape(-1, 2)
+            all_contour_points.append(pts[::stp.POINT_STEP])
+
+        if not all_contour_points:
+            return MultiPolygon([])
+
+        points = np.vstack(all_contour_points)
+
+        #---------------
+        try:
+
+            shape_polygon = a_shape.alphashape(points, stp.ALPHA)
+
+            #---------------
+            if shape_polygon.geom_type == 'MultiPolygon':
+                
+                valid_polys = [poly for poly in shape_polygon.geoms if poly.area > stp.SHAPE_MIN_AREA]
+                
+                if not valid_polys:
+                    return  MultiPolygon([])
+                elif len(valid_polys) == 1:
+                    return valid_polys[0]  
+                else:
+                    return MultiPolygon(valid_polys)
+
+            #---------------
+            elif shape_polygon.geom_type == 'Polygon':
+                
+                if shape_polygon.area > stp.SHAPE_MIN_AREA:
+                    return shape_polygon
+                else:
+                    return  MultiPolygon([])
+
+            #---------------
+            else:
+                return  MultiPolygon([])
+
+        except Exception as e:
+            raise ValueError(f"Error while running alphashape algorithm : {e}")
+
+    #================================================================================#
+    def compute_boundaries(self, method : int = 0) -> MultiPolygon :
+
+        """
+        compute the general shape of the Region
+
+        :params method: defines the wanted method to compute the shape (defaults : morph)
+
+        :return boundaries: MultiPolygon object
         """
         
         #------------------------------
         if(len(self.fibers) == 0):
-            raise ValueError("compute_shape() in Region.py line 52 : self.fibers is empty")
-        
+            raise ValueError("compute_boundaries() in Region.py line 52 : self.fibers is empty")
+
         #------------------------------
         if(method == stp.MORPH):
-
-            polygons = []
-            for fib in self.fibers:
-
-                pts = fib.contour.reshape(-1, 2) 
-
-                if len(pts) >= 3:
-
-                    poly =  Polygon(pts)
-
-                    if not poly.is_valid:
-                        poly = poly.buffer(0) 
-
-                    if not poly.is_empty:
-                        polygons.append(poly)
-
-            #---------------
-            if not polygons:
-                return MultiPolygon([])
-
-            dilated_polys   = [p.buffer(stp.R_DILATE).buffer(0) for p in polygons]
-            merged_shape    = unary_union(dilated_polys)
-            final_shape     = merged_shape.buffer(stp.R_ERODE).buffer(0)
+            return(self.run_moph())
             
-            #---------------
-            if(final_shape.geom_type == "MultiPolygon"):
-                
-                valid_geoms = []
-                geoms = list(final_shape.geoms)
-
-                for poly in geoms:
-
-                    if poly.area >= stp.REGION_MIN_AREA:
-                        valid_geoms.append(poly)     
-
-                if not valid_geoms:
-                    return MultiPolygon([]) 
-                
-                elif len(valid_geoms) == 1:
-                    return valid_geoms[0] 
-                
-                else:
-                    return MultiPolygon(valid_geoms)
-
-            #--------------- 
-            elif(final_shape.geom_type == "Polygon"):
-                
-                if final_shape.area >= stp.REGION_MIN_AREA:  
-                    return final_shape
-
-                return MultiPolygon([])
-            
-        #------------------------------
         elif(method == stp.A_SHAPE) :
+            return(self.run_alphashape())
 
-            all_contour_points = []
+        
+    #================================================================================#
+    def compute_mean_fibers_len(self):
 
-            for fib in self.fibers:
-                pts = (fib.contour).reshape(-1, 2)
-                all_contour_points.append(pts[::stp.POINT_STEP])
+        """
+        compute the mean length of the fibers in the Region
+        """
 
-            if not all_contour_points:
-                return MultiPolygon([])
+        #------------------------------
+        mean = 0
+        for fib in self.fibers:
+            mean += fib.length 
 
-            points = np.vstack(all_contour_points)
+        if(self.nb_fibers != 0):
+            self.mean_fibers_len = mean / self.nb_fibers
+        else:
+            self.mean_fibers_len = -1.0
 
-            #---------------
-            try:
+        return self.mean_fibers_len
+    
+    #================================================================================#
+    def compute_mean_fibers_width(self):
 
-                shape_polygon = a_shape.alphashape(points, stp.ALPHA)
+        """
+        compute the mean width of the fibers in the Region
+        """
 
-                #---------------
-                if shape_polygon.geom_type == 'MultiPolygon':
-                    
-                    valid_polys = [poly for poly in shape_polygon.geoms if poly.area > stp.REGION_MIN_AREA]
-                    
-                    if not valid_polys:
-                        return  MultiPolygon([])
-                    elif len(valid_polys) == 1:
-                        return valid_polys[0]  
-                    else:
-                        return MultiPolygon(valid_polys)
+        #------------------------------
+        mean = 0
+        for fib in self.fibers:
+            mean += fib.width
 
-                #---------------
-                elif shape_polygon.geom_type == 'Polygon':
-                    
-                    if shape_polygon.area > stp.REGION_MIN_AREA:
-                        return shape_polygon
-                    else:
-                        return  MultiPolygon([])
+        if(self.nb_fibers != 0):
+            self.mean_fibers_width = mean / self.nb_fibers
+        else:
+            self.mean_fibers_width = -1.0
 
-                #---------------
-                else:
-                    return  MultiPolygon([])
-
-            except Exception as e:
-                raise ValueError(f"Error while computing alphashape: {e}")
+        return self.mean_fibers_width
     
     #================================================================================#
     def add_fiber(self, n_fibers : list[Fiber.Fiber] | Fiber.Fiber = None):
@@ -213,11 +282,10 @@ class Region :
         """
         allows to manualy add Fibers in a regions
 
-        n_fibers: list of Fiber or a simple Fiber
+        :params n_fibers: list of Fiber or a simple Fiber
         """
         
         #------------------------------
-
         if n_fibers is None:
             return
         
@@ -228,84 +296,7 @@ class Region :
 
         self.mean_angle   = self.compute_angle(compute_mean=True)
         self.median_angle = self.compute_angle()
-
-    #============================================================================================================================#
-    #---------------------------------------------------------- REDER -----------------------------------------------------------#
-    #============================================================================================================================#
-    def render_shape(self, img : np.ndarray, n_config_path : str = None) -> None:
         
-        """
-        rendering of the shape of the Region
-
-        img : image on wich we draw the shape
-        n_config_path : path to te configuration file
-        """
-
-        #------------------------------
-        if(self.shape == None):
-            raise ValueError(f"render_shape() Region.py line 155 : self.shape is empty")
-        
-        if self.shape.geom_type == 'Polygon':
-            shape_list = [self.shape]
-
-        elif self.shape.geom_type == 'MultiPolygon':
-            shape_list = list(self.shape.geoms)
-            
-        else:
-            return
-        
-        #------------------------------
-        if(n_config_path != None):
-
-            if(os.path.exists(n_config_path)):
-                color = tools.get_color(self.mean_angle, n_config_path=n_config_path)
-            else:
-                raise ValueError(f"{n_config_path} do not exist")
-            
-        else:
-            color = tools.angle_to_color(self.mean_angle)
-
-        #------------------------------
-        if(not os.path.exists(self.shape_file)):
-
-            shape_cnt = []
-            for poly in shape_list:
-                cnt = tools.shapely_to_opencv(poly)
-                if cnt is not None:
-                    shape_cnt.append(cnt)
-
-            cv.drawContours(img, shape_cnt, -1, color, thickness=stp.SHAPE_THICKNESS)
-
-        #------------------------------
-        else:
-
-            roi     = roifile.ImagejRoi.fromfile(self.shape_file)
-            points  = roi.coordinates()
-            points  = np.array(points, dtype=np.int32)
-
-            cnt = points.reshape((-1, 1, 2))
-
-            cv.drawContours(img, [cnt], -1, color, thickness=stp.SHAPE_THICKNESS, lineType=cv.LINE_AA)
-
-    #================================================================================#
-    def render_fibers(self, img : np.ndarray, n_config_path : str) -> None:
-
-        """
-        render all the fiber of the Rgion contained in self.fibers
-
-        img : image on wich we draw the shape
-        n_config_path : path to te configuration file
-        """
-        
-        #------------------------------
-        if(len(self.fibers) == 0):
-            return
-        
-        for fib in self.fibers:
-            fib.render(img, 
-                       reg_angle=self.mean_angle, 
-                       n_config_path=n_config_path)
-
     #================================================================================#
     def render(self, 
                img : np.ndarray, 
@@ -313,32 +304,23 @@ class Region :
                render_type : int = stp.DRAW_FIBER) -> np.ndarray:
         
         """
-        global rendering function for a region
+        global rendering of a region
 
-        img : image on wich we draw the shape
-        n_config_path : path to te configuration file
-        render_type : wanted type of render 
+        :params img:             image on wich we draw the shape
+        :params n_config_path:   path to the configuration file
+        :params render_type:     wanted type of render 
+
+        :return img: image with the bondaries of the region
         """
 
         #------------------------------
-        if(render_type == stp.DRAW_FIBER):
-            self.render_fibers(img, n_config_path)
+        if not self.shapes:
             return img
+        
+        for shape in self.shapes:
+            shape.render(img=img, render_type=render_type, n_config_path=n_config_path)
 
-        #------------------------------
-        elif(render_type == stp.DRAW_SHAPE):
-            self.render_shape(img, n_config_path)
-            return img
-        
-        #------------------------------
-        elif(render_type == stp.DRAW_FIBER + stp.DRAW_SHAPE):
-            self.render_fibers(img, n_config_path)
-            self.render_shape(img, n_config_path)
-            return img
-        
-        #------------------------------
-        else:
-            raise ValueError(f"render() Region.py line : 136 : uknown method value | method = {render_type}")
+        return img
     
     #================================================================================#
     def print(self):
@@ -354,8 +336,8 @@ class Region :
         print(f"mean angle       = {self.mean_angle}")
         print(f"median angle     = {self.median_angle}")
 
-        if(self.shape != [] or self.shape != None):
-            print(f"shape            = {self.shape.geom_type}")
+        if(self.shapes != [] or self.shapes != None):
+            print(f"shape            = {self.shapes.geom_type}")
 
         print(f"fibers.len       = {len(self.fibers)}")
         print(f"#================================#")
@@ -367,23 +349,18 @@ class Region :
         """
         allows to save the Region in .roi format compatible with ImageJ
 
-        n_regions_path : path to the directory in wich the Region wille be saved 
+        :params n_regions_path:  path to the directory in wich the Region wille be saved 
         """
         
         #------------------------------
-        if self.shape is None :
-            raise ValueError("save() Regions.py line 206 : shape is empty")
-        
-        if self.shape.geom_type == 'Polygon':
-            geoms = [self.shape]
-
-        elif self.shape.geom_type == 'MultiPolygon':
-            geoms = list(self.shape.geoms)
+        if not self.shapes:
+            raise ValueError(f"self.dhapes is empty or None : {self.shapes}")
         
         #------------------------------
         ext_count = 0
-        for poly in geoms:
+        for shape in self.shapes:
             
+            poly            = shape.polygon
             points_ext      = list(poly.exterior.coords)
             
             roi_ext         = roifile.ImagejRoi.frompoints(points_ext)
@@ -423,7 +400,7 @@ def merge_regions(regions : list[Region]):
     """
     allows to merge regions
 
-    regions : list of regions to merge
+    :params regions:    list of regions to merge
     """
 
     #------------------------------
