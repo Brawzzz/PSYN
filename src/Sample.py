@@ -6,6 +6,7 @@ import glob
 import json
 import copy
 import roifile
+import pickle as pkl
 import cv2 as cv
 import numpy as np
 
@@ -788,8 +789,36 @@ class Sample :
                 
                 pbar.update(1)
 
+        #------------------------------
+        print(f"Saving sample as pickle file")
+
+        file_path = self.output_path + self.name + ".pkl"
+        with open(file_path, 'wb') as file:
+            pkl.dump(self, file)
+
         #---------------
         self.get_data(n_save=True)
+        
+    #================================================================================#
+    @classmethod
+    def load(cls, filepath : str = "./output/hxtl_p25_pre/hxtl_p25_pre.pkl") :
+
+        """
+        load a sample from a pickle file
+
+        :params n_regions_path: if not None, save the .roi files in this path instead of self.regions_path
+        """
+
+        #------------------------------
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"Le fichier {filepath} n'existe pas.")
+            
+        print(f"Loading sample from {filepath} ...", end="", flush=True)
+        with open(filepath, 'rb') as file:
+            loaded_sample = pkl.load(file)
+        print(f"\r\rLoading sample from {filepath} ... Done")
+        
+        return loaded_sample
         
 #============================================================================================================================#
 #------------------------------------------------------ STATIC METHODS ------------------------------------------------------#

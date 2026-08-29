@@ -1,6 +1,9 @@
+import os
 import numpy as np
 import pandas as pd
 import cv2 as cv
+
+from tqdm import tqdm
 
 import Sample
 
@@ -47,6 +50,70 @@ def compare_data(file1_path, file2_path, output_path):
     #------------------------------
     report_df = pd.DataFrame(rows_report)
     report_df.to_csv(output_path, index=False)
+
+#================================================================================#
+def build_dataset(n_sample : Sample.Sample, 
+                  patch_size : int = 512, 
+                  export_dir : str = "./data/dataset/UNet"):
+
+    """
+    build a dataset by spliting the sample image and the global mask of teh regions
+
+    :params global_img:     Sample img to be split   
+    :params global_mask:    Global mask of the Sample's regions  
+    :params patch_size:     size of a split 
+    :params export_dir:     export direcrtory to save the images
+    """
+
+    #------------------------------
+    img_dir     = os.path.join(export_dir, "images")
+    mask_dir    = os.path.join(export_dir, "masks")
+
+    os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(mask_dir, exist_ok=True)
+
+    #------------------------------
+    (h, w)      = n_sample.img.shape[:2]
+    global_mask = np.full((h, w), -100.0, dtype=np.float32)
+
+    for reg in n_sample.regions:
+
+        angle_value = float(reg.mean_angle) 
+
+        #---------------
+        for shape in reg.shapes:
+            for fib in shape.fibers:
+
+                cv.drawContours(global_mask, [fib.contour], contourIdx=-1, color=angle_value, thickness=cv.FILLED)
+
+    #------------------------------
+    (h, w)      = n_sample.img.shape[:2]
+    patch_id    = 0
+
+    y_steps         = len(range(0, h, patch_size))
+    x_steps         = len(range(0, w, patch_size))
+    total_patches   = y_steps * x_steps
+
+    with tqdm(total=total_patches, desc="Building dataset ", unit="reg") as pbar:
+    
+        for y in range(0, h, patch_size):
+            for x in range(0, w, patch_size):
+                
+                img_patch   = n_sample.img[y:y+patch_size, x:x+patch_size]
+                mask_patch  = global_mask[y:y+patch_size, x:x+patch_size]
+
+                #---------------
+                if img_patch.shape[:2] != (patch_size, patch_size):
+                    pbar.update(1)
+                    continue
+                    
+                #---------------
+                cv.imwrite(os.path.join(img_dir, f"patch_{patch_id}.png"), img_patch)
+                np.save(os.path.join(mask_dir, f"patch_{patch_id}.npy"), mask_patch)
+                
+                patch_id += 1
+
+                pbar.update(1)
 
 #================================================================================#
 if __name__ == "__main__":
