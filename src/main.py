@@ -45,7 +45,9 @@ from UNet import HexToolDataset,UNetOrientation, MSELoss
 def run(n_config : str):
 
     """
-    
+    run the computer vision algorith to detect Fibers and classify the Regions
+
+    :params n_config: path the config file to use 
     """
 
     #------------------------------
@@ -74,7 +76,17 @@ def run(n_config : str):
 
 #================================================================================#
 def train_UNet(dataset_dir="./data/dataset/UNet", epochs=20, batch_size=4, learning_rate=1e-4):
-    
+
+    """
+    function to train the UNet model
+
+    :params dataset_dir:    path to the directory containing the data
+    :params epoch:          number of epochs for the training phase
+    :params batch_size:     size of the batch use for one epoch of training
+    :params learning_rate:  
+
+    """
+
     #------------------------------
     device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
     print(f"Training on : {device}")
