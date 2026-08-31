@@ -13,7 +13,7 @@ Moreover this project requires a lot of different library which are listed in re
 
 - python -m venv my_venv
 
-- ./my_venv/Script/activate
+- ./my_venv/Scripts/activate
 
 - pip install -r requirements.txt
 
