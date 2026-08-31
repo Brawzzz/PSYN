@@ -54,15 +54,17 @@ def compare_data(file1_path, file2_path, output_path):
 #================================================================================#
 def build_dataset(n_sample : Sample.Sample, 
                   patch_size : int = 512, 
-                  export_dir : str = "./data/dataset/UNet"):
+                  export_dir : str = "./data/dataset/UNet") -> None:
 
     """
-    build a dataset by spliting the sample image and the global mask of teh regions
+    Build a dataset by spliting the sample image and the global mask of teh regions
 
-    :params global_img:     Sample img to be split   
-    :params global_mask:    Global mask of the Sample's regions  
-    :params patch_size:     size of a split 
-    :params export_dir:     export direcrtory to save the images
+    Parameters
+    ----------
+    global_img  : Sample img to be split   
+    global_mask : Global mask of the Sample's regions  
+    patch_size  : size of a split 
+    export_dir  : export direcrtory to save the images
     """
 
     #------------------------------

@@ -10,7 +10,9 @@ def get_config(config_path : str = "./config/config.json"):
     """
     set up all the necessary parameters from configuration file
 
-    :params: config_path: path to the wanted configuration file
+    Parameters
+    ----------
+    config_path : path to the wanted configuration file
     """
     
     #------------------------------

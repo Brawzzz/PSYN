@@ -48,6 +48,10 @@ class Region :
         
         """
         fill self.fibers with n_fibers params
+
+        Parameters
+        ----------
+        n_fibers : list of Fiber
         """
         
         #------------------------------
@@ -69,7 +73,9 @@ class Region :
         """
         compute the global angle of a Region.
 
-        :params compute_mean: if true return the mean angle else return the median angle
+        Parameters
+        ----------  
+        compute_mean : if true return the mean angle else return the median angle
         """
         
         #------------------------------
@@ -105,7 +111,9 @@ class Region :
         """
         function to run the morphological algorithm on region's fiber list
         
-        :return boudaries: MultiPolygon object defining the region's boundaries
+        Returns
+        ----------
+        boudaries : MultiPolygon object defining the region's boundaries
         """
 
         #------------------------------
@@ -168,7 +176,9 @@ class Region :
         """
         function to run the alphashape algorithm on region's fiber list
 
-        :return boudaries: MultiPolygon object defining the region's boundaries
+        Returns
+        ----------
+        boudaries : MultiPolygon object defining the region's boundaries
         """
 
         #------------------------------
@@ -221,9 +231,13 @@ class Region :
         """
         compute the general shape of the Region
 
-        :params method: defines the wanted method to compute the shape (defaults : morph)
+        Parameters
+        ----------
+        method : defines the wanted method to compute the shape (defaults : morph)
 
-        :return boundaries: MultiPolygon object
+        Returns
+        ----------
+        boundaries : MultiPolygon object
         """
         
         #------------------------------
@@ -239,10 +253,14 @@ class Region :
 
         
     #================================================================================#
-    def compute_mean_fibers_len(self):
+    def compute_mean_fibers_len(self) -> float:
 
         """
         compute the mean length of the fibers in the Region
+
+        Returns
+        ----------
+        self.mean_fibers_len : average length of fibers in a region
         """
 
         #------------------------------
@@ -255,13 +273,17 @@ class Region :
         else:
             self.mean_fibers_len = -1.0
 
-        return self.mean_fibers_len
+        return(self.mean_fibers_len)
     
     #================================================================================#
-    def compute_mean_fibers_width(self):
+    def compute_mean_fibers_width(self) -> float:
 
         """
         compute the mean width of the fibers in the Region
+
+        Returns
+        ----------
+        self.mean_fibers_width : average width of fibers in a region
         """
 
         #------------------------------
@@ -274,15 +296,17 @@ class Region :
         else:
             self.mean_fibers_width = -1.0
 
-        return self.mean_fibers_width
+        return(self.mean_fibers_width)
     
     #================================================================================#
-    def add_fiber(self, n_fibers : list[Fiber.Fiber] | Fiber.Fiber = None):
+    def add_fiber(self, n_fibers : list[Fiber.Fiber] | Fiber.Fiber = None) -> None:
 
         """
         allows to manualy add Fibers in a regions
 
-        :params n_fibers: list of Fiber or a simple Fiber
+        Parameters
+        ----------
+        n_fibers : list of Fiber or a simple Fiber
         """
         
         #------------------------------
@@ -306,11 +330,15 @@ class Region :
         """
         global rendering of a region
 
-        :params img:             image on wich we draw the shape
-        :params n_config_path:   path to the configuration file
-        :params render_type:     wanted type of render 
+        Parameters
+        -----------
+        img             : image on wich we draw the shape
+        n_config_path   : path to the configuration file
+        render_type     : wanted type of render 
 
-        :return img: image with the bondaries of the region
+        Returns
+        -----------
+        img : image with the bondaries of the region
         """
 
         #------------------------------
@@ -320,10 +348,10 @@ class Region :
         for shape in self.shapes:
             shape.render(img=img, render_type=render_type, n_config_path=n_config_path)
 
-        return img
+        return(img)
     
     #================================================================================#
-    def print(self):
+    def print(self) -> None:
 
         """
         print all the data of the region
@@ -344,12 +372,14 @@ class Region :
         print("\n")
 
     #================================================================================#
-    def save(self, n_regions_path : str):
+    def save(self, n_regions_path : str) -> None:
 
         """
         allows to save the Region in .roi format compatible with ImageJ
 
-        :params n_regions_path:  path to the directory in wich the Region wille be saved 
+        Parameters
+        -----------
+        n_regions_path :  path to the directory in wich the Region wille be saved 
         """
         
         #------------------------------
@@ -398,9 +428,11 @@ class Region :
 def merge_regions(regions : list[Region]):
 
     """
-    allows to merge regions
+    merge two or more Regions
 
-    :params regions:    list of regions to merge
+    Parameters
+    -----------
+    regions :    list of regions to merge
     """
 
     #------------------------------
@@ -411,4 +443,4 @@ def merge_regions(regions : list[Region]):
 
     region_merged = Region(all_fib, n_split_index=-1)
     
-    return region_merged
+    return(region_merged)

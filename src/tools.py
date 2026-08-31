@@ -17,10 +17,18 @@ from importlib.resources import files
 #============================================================================================================================#
 #-------------------------------------------------------- FUNCTION ----------------------------------------------------------#
 #============================================================================================================================#
-def angle_to_color(angle : float):
+def angle_to_color(angle : float) -> tuple[int, int, int]:
 
     """
     compute a unique color associated to angle
+
+    Parameters
+    ----------
+    angle : the actual angle to convert into a color
+
+    Returns
+    ----------
+    color : color BGR
     """
 
     #------------------------------
@@ -31,12 +39,19 @@ def angle_to_color(angle : float):
     return (int(bgr_px[0]), int(bgr_px[1]), int(bgr_px[2]))
 
 #================================================================================#
-def get_color(angle : float, n_config_path : str):
+def get_color(angle : float, n_config_path : str) -> tuple[int, int, int]:
     
     """
     retun a color associated to angle from a colors configuration file
 
-    n_config_path : path to the colors configuration file
+    Parameters
+    ----------
+    angle           : the angle to extract the color
+    n_config_path   : path to the colors configuration file
+
+    Returns
+    ----------
+    color : color RGB
     """
     #------------------------------
     if(os.path.exists(n_config_path)):
@@ -69,12 +84,15 @@ def get_color(angle : float, n_config_path : str):
         return
     
 #================================================================================#
-def clear_folder(folder_path, except_files = ["./output/hxtl_p25_pre/data/"]):
+def clear_folder(folder_path, except_files = ["./output/hxtl_p25_pre/data/"]) -> None:
 
     """
     clear completely a directory exectpted files or folders in execept_files 
 
-    folder_path :  path of the folder to clear
+    Parameters
+    ----------
+    folder_path  : path of the folder to clear
+    except_files : list of files to not delete
     """
 
     #------------------------------
@@ -97,12 +115,14 @@ def clear_folder(folder_path, except_files = ["./output/hxtl_p25_pre/data/"]):
             print(f"Impossible to remove {item_path} : {e}")
 
 #================================================================================#
-def arg_parse():
+def arg_parse() -> str:
 
     """
     get the path to the configuration file from the command line arguments
 
-    :return: args.config
+    Returns
+    ----------
+    args.config : config file path 
     """
 
     parser = ap.ArgumentParser(description="Outil d'analyse de fibres HexTool.")
@@ -126,9 +146,13 @@ def compute_row_col(n : int) -> tuple[int, int]:
     """
     compute and set the row/col attributes
 
-    :params: n number of split 
+    Parameters
+    ----------
+    n : number of split 
 
-    :return: (row, col) row and col to display the splits
+    Returns
+    ----------
+    (row, col) : row and col to display the splits
     """
 
     #------------------------------
@@ -158,14 +182,18 @@ def compute_row_col(n : int) -> tuple[int, int]:
         return(row, col)
 
 #================================================================================#
-def shapely_to_opencv(polygon):
+def shapely_to_opencv(polygon) -> list:
 
     """
     convert a Shapely object to an OpenCV object 
 
-    :params: polygon a Shapely object
+    Parameters
+    ----------
+    polygon a Shapely object
 
-    :return: contours list of OpenCV contours
+    Returns
+    ----------
+    contours : list of OpenCV contours
     """
 
     #------------------------------
@@ -179,7 +207,7 @@ def shapely_to_opencv(polygon):
         pts = np.array([[int(x), int(y)] for x, y in ring.coords], dtype=np.int32)
         contours.append(pts.reshape((-1, 1, 2)))
 
-    return contours
+    return(contours)
 
 #================================================================================#
 def get_peaks(angles : list[float], 
@@ -189,11 +217,15 @@ def get_peaks(angles : list[float],
     """
     compute the peaks angles in a list of angles
 
-    :params:    angles          : list[float] 
-    :params:    min_peak_height : minimun occurces to be considerate as a peak
-    :params:    sigma_smoth     : smooth factor to compute the histogramme
+    Parameters
+    ----------
+    angles          : list[float] 
+    min_peak_height : minimun occurces to be considerate as a peak
+    sigma_smoth     : smooth factor to compute the histogramme
 
-    :return: list[float] : list of peaks angles
+    Returns
+    ----------
+    merged_peaks : list of peaks angles
     """
 
     #------------------------------
@@ -289,7 +321,7 @@ def get_peaks(angles : list[float],
         else:
             merged_peaks.append(current_peak)
 
-        return  merged_peaks
+        return(merged_peaks)
 
 #================================================================================#
 def img_empty(img):

@@ -22,7 +22,9 @@ class Fiber:
     The Fiber class describe the fibers contained in the materail HexTool
     It is defined mainly by : 
 
-    contour         : the contour ofvthe corresponding fiber in the image
+    Parameters
+    ----------
+    contour         : the contour of the corresponding fiber in the image
     oriented_box    : a bonding bow ofv the contours which is oriented
     angle           : the angle of the fiber (0-180°)  
     """
@@ -96,7 +98,9 @@ class Fiber:
         allows to map fiber contour, pass the contour coordinates form the split basis to 
         the complete image basis
 
-        :params: split fiber's split
+        Parameters
+        ----------
+        split : fiber's split
         """
         
         #------------------------------
@@ -114,9 +118,11 @@ class Fiber:
         """
         render the contours of the Fiber on img
 
-        :params img:              image on which to render the fiber
-        :params n_config_path:    path of color configuration
-        :params reg_angle:        angle of the fiber's region
+        Parameters
+        ----------
+        img             : image on which to render the fiber
+        n_config_path   : path of color configuration
+        reg_angle       : angle of the fiber's region
         """
 
         #------------------------------
@@ -151,7 +157,7 @@ class Fiber:
 #----------------------------------------------------- STATICS METHODS ------------------------------------------------------#
 #============================================================================================================================#
 @staticmethod
-def fiber_angle(rect):
+def fiber_angle(rect) -> float:
 
     """
     return the orientation angle of a Fiber
@@ -174,6 +180,8 @@ def select_fiber(n_fibers : list[Fiber]) -> list[Fiber]:
     select ony the valid fiber in given list
 
     :params n_fibers: list of Fiber
+
+    :return selected_fibers: list of fibers
     """
     
     #------------------------------
@@ -193,6 +201,8 @@ def detect_fibers(thresh_img) -> list[Fiber]:
     detect fibers in a threshold image
 
     :params thresh_img: path to the threshold image, or the mask array itself
+
+    :return selected_fibers: list of fibers
     """
 
     #------------------------------

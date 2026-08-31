@@ -29,13 +29,15 @@ import setup as stp
 class Sample :
 
     """
-    The Sample class contains the tribological data and the image analysis.
+    The Sample class contains the tribological and the image analysis datas.
 
-    It is defined by mainly :
+    It is defined mainly by :
 
-    :params n_id:       the id of the sample (exemple : 22, 23, 24, 25)
-    :params img:        the image from the tribological study
-    :params regions:    a list of Region instances from the image analysis
+    Parameters
+    -----------
+    n_id    : the id of the sample (exemple : 22, 23, 24, 25)
+    img     : the image from the tribological study
+    regions : a list of Region instances from the image analysis
     """
 
     #------------------------------
@@ -74,12 +76,14 @@ class Sample :
         self.regions_data                  = []
 
     #================================================================================#
-    def set_path(self, n_fret=False):
+    def set_path(self, n_fret=False) -> None:
 
         """
         Set the different path needed for a Sample
 
-        :params n_fret: True if running after fretting
+        Parameters
+        -----------
+        n_fret : True if running after fretting
         """
 
         #------------------------------
@@ -105,7 +109,7 @@ class Sample :
         self.saving_config  = os.path.join(self.output_path, self.name + config_suffix)
 
     #================================================================================#
-    def load_img(self):
+    def load_img(self) -> None:
 
         """
         load the corresponding image from the sample 
@@ -126,12 +130,18 @@ class Sample :
         return copy.deepcopy(self)
         
     #================================================================================#
-    def split(self, save : bool = True):
+    def split(self, save : bool = True) -> list | None:
 
         """
         split the sample in a list of Split object
 
-        :params save: if true it saves the correspondind split's image otherwise it return a list containing all the splits images (default : true)
+        Parameters
+        -----------
+        save : if true it saves the correspondind split's image otherwise it return a list containing all the splits images (default : true)
+
+        Returns
+        -----------
+        images : list of images representing splits of the global image
         """
 
         #------------------------------
@@ -148,7 +158,7 @@ class Sample :
                 cv.imwrite(split_i.img_path, self.img)
                 pbar.update(1)
 
-            return 
+            return None
         
         #------------------------------
         (img_h, img_w) = self.img.shape[:2]
@@ -256,13 +266,15 @@ class Sample :
     #================================================================================#
     def tresh_img(self,
                   blur_method   : int = stp.GAUSSIAN_BLUR,
-                  thresh_method : int = stp.CLASSIC_THRESH):
+                  thresh_method : int = stp.CLASSIC_THRESH) -> None:
 
         """
         Threshold each Splits, the function do both blur and thresh
 
-        :params blur_method:    tell the wanted blur method (default : cv.GaussianBlur())
-        :params thresh_method:  tell the wanted thresh method (default : cv.threshold())
+        Parameters
+        -----------
+        blur_method     : tell the wanted blur method (default : cv.GaussianBlur())
+        thresh_method   : tell the wanted thresh method (default : cv.threshold())
         """
 
         #------------------------------
@@ -324,8 +336,14 @@ class Sample :
         single full-size mask
         Fibers can be detected once -- in global coordinates
 
-        :params heal_seams:    light morphological close to reconnect a fiber that a threshold
-        :params save:          if true it saves the full mask otherwise it return it (default : true)
+        Parameters
+        -----------
+        heal_seams  : light morphological close to reconnect a fiber that a threshold
+        save        : if true it saves the full mask otherwise it return it (default : true)
+
+        Returns
+        -----------
+        full_mask : image wich is the recontrction of the global image from threshold splits
         """
 
         #------------------------------
@@ -396,8 +414,10 @@ class Sample :
 
         """
         Merge regions of similar orientation into one region per main-angle peak.
-
-        :return region: list of new regions
+        
+        Returns
+        -----------
+        region : list of new regions
         """
 
         #------------------------------
@@ -435,14 +455,15 @@ class Sample :
                 pbar.update(1)
 
         self.regions = regions
-        return regions
+
+        return(regions)
 
     #================================================================================#
-    def resolve_overlaps(self):
+    def resolve_overlaps(self) -> None:
 
         """
-        Vérifie les chevauchements entre toutes les shapes.
-        Rogne les shapes moins denses et met à jour les objets existants.
+        Check the overlapse for each shapes of the regions .
+        Crop the less dense shapes and update the existing objects.
         """
         
         #------------------------------
@@ -543,13 +564,19 @@ class Sample :
         return
     
     #================================================================================#
-    def get_data(self, n_save=False, graph=False):
+    def get_data(self, n_save=False, graph=False) -> list:
 
         """
-        compute the data of each global regions in self.regions and save it in a csv file
+        Compute the data of each global regions in self.regions and save it in a csv file
 
-        :params n_save: if true it saves the data in a csv file otherwise it return it (default : false)
-        :params graph:  if true it display a graph of the data (default : false)
+        Parameters
+        -----------
+        n_save : if true it saves the data in a csv file otherwise it return it (default : false)
+        graph  : if true it display a graph of the data (default : false)
+
+        Returns
+        -----------
+        self.regions_data : list containing the data of the regions
         """
 
         #------------------------------
@@ -579,9 +606,13 @@ class Sample :
         Return all the sample's regions as Numpy arrays formatted for OpenCV (N, 1, 2) in int32.
         The function load the .roi files from self.regions_path.
 
-        :params n_regions_path: if not None, load the .roi files from this path instead of self.regions_path
+        Returns
+        -----------      
+        n_regions_path : if not None, load the .roi files from this path instead of self.regions_path
 
-        :return: list of Numpy arrays representing the regions
+        Returns
+        -----------
+        self.regions : list of Numpy arrays representing the regions
         """
 
         #------------------------------
@@ -611,15 +642,15 @@ class Sample :
 
         self.regions = regions
 
-        return regions
+        return self.regions
 
     #================================================================================#
     def save_config(self) -> None:
 
         """
-        configuration file as an output summary of the params used for a particular run
+        Save a configuration file as an output summary of the params used for a particular run
 
-        :params file name: sample.name + JJ_MM_AAAA_HH_MIN_S .json (exemple : hxtl_p25_pre_config_26_02_2026_13_51_51.json)
+        file name: sample.name + JJ_MM_AAAA_HH_MIN_S .json (exemple : hxtl_p25_pre_config_26_02_2026_13_51_51.json)
         """
         
         #------------------------------
@@ -690,10 +721,14 @@ class Sample :
         render of all the regions in self.regions
         create a file for each region and return an image containing all th contours 
 
-        :params n_render:       indicates the desired rendering type 
-        :params render_splits:  if true do the render on each split of self.splits
+        Parameters
+        -----------
+        n_render        : indicates the desired rendering type 
+        render_splits   : if true do the render on each split of self.splits
 
-        :return: image containing all the contours of the regions
+        Returns
+        -----------
+        image containing all the contours of the regions
         """
         
         #------------------------------
@@ -725,7 +760,7 @@ class Sample :
 
                 cv.imwrite(self.regions_path + self.name + "_region_" + str(int(reg.mean_angle)) + ".png", single_reg_img)
 
-            return all_regions_img
+            return(all_regions_img)
         
     #================================================================================#
     def print(self, region=False):
@@ -733,7 +768,9 @@ class Sample :
         """
         print all the informations about a Sample 
 
-        :params region: if true print the information about all the Regions in self.regions[]
+        Parameters
+        -----------
+        region : if true print the information about all the Regions in self.regions[]
         """
         
         #------------------------------
@@ -769,7 +806,9 @@ class Sample :
         """
         save all the Region in self.regions[] in .roi format
 
-        :params n_regions_path: if not None, save the .roi files in this path instead of self.regions_path
+        Parameters
+        -----------
+        n_regions_path : if not None, save the .roi files in this path instead of self.regions_path
         """
 
         #------------------------------
@@ -804,9 +843,15 @@ class Sample :
     def load(cls, filepath : str = "./output/hxtl_p25_pre/hxtl_p25_pre.pkl") :
 
         """
-        load a sample from a pickle file
+        Load a sample from a pickle file
+        
+        Parameters
+        -----------
+        n_regions_path: if not None, save the .roi files in this path instead of self.regions_path
 
-        :params n_regions_path: if not None, save the .roi files in this path instead of self.regions_path
+        Returns
+        -----------
+        loaded_sample : the actual sample loaded
         """
 
         #------------------------------
@@ -828,8 +873,14 @@ def init(config_path=f"./config/config.json", n_fret = False) -> Sample:
     """
     initialisation of a Sample
 
-    :params config_path:    path to the configuration file
-    :params n_fret:         indicates whether the study is before or after fretting
+    Parameters
+    -----------
+    config_path : path to the configuration file
+    n_fret      : indicates whether the study is before or after fretting
+
+    Parameters
+    -----------
+    sample : return the intialized Sample
     """
 
     #------------------------------
@@ -861,4 +912,4 @@ def init(config_path=f"./config/config.json", n_fret = False) -> Sample:
     os.makedirs(sample.regions_path, exist_ok=True)
     os.makedirs(sample.data_path, exist_ok=True)
 
-    return sample
+    return(sample)

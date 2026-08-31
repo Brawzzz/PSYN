@@ -2,8 +2,6 @@
 #---------------------------------------------------------- IMPORT ----------------------------------------------------------#
 #============================================================================================================================#
 import os
-import roifile
-
 import cv2 as cv
 import numpy as np
 
@@ -39,7 +37,7 @@ class Shape:
         self.saving_file    = ""
 
     #================================================================================#
-    def print(self):
+    def print(self) -> None:
 
         """
         print all the information of a shape
@@ -50,13 +48,15 @@ class Shape:
         print(f"area        : {self.polygon.area}")
 
     #================================================================================#
-    def update(self, n_poly : Polygon, n_fibers : list[Fiber.Fiber]):
+    def update(self, n_poly : Polygon, n_fibers : list[Fiber.Fiber]) -> None:
 
         """
         update a shape's informations
 
-        :params n_poly:     new polygon of the updated shape
-        :params n_fibers:   new list of fiber of the updated shape 
+        Parameters
+        ----------
+        n_poly   : new polygon of the updated shape
+        n_fibers : new list of fiber of the updated shape 
         """
 
         #------------------------------
@@ -76,8 +76,10 @@ class Shape:
         """
         rendering polygon's boundaries on an img
 
-        :params img:            image on wich we draw the the polygon's boundaries
-        :params n_config_path:  path to the configuration file
+        Parameters
+        ----------
+        img             : image on wich we draw the the polygon's boundaries
+        n_config_path   : path to the configuration file
         """
 
         #------------------------------
@@ -144,8 +146,10 @@ class Shape:
         """
         rendering of the shapes forming the Region
 
-        :params img:            image on wich we draw the shape
-        :params n_config_path:  path to the configuration file
+        Parameters
+        ----------
+        img             : image on wich we draw the shape
+        n_config_path   : path to the configuration file
         """
 
         #------------------------------
@@ -180,10 +184,14 @@ def set_shapes(borders : MultiPolygon, n_fibers : Fiber.Fiber, n_angle : float) 
     """
     split the borders compute by Regions method into a list of Shapes
 
-    :params borders:    shapely Polygon or multipolygon from Regions computation
-    :params n_fibers:   group of Fiber contained in the Regions 
+    Parameters
+    ----------
+    borders  : shapely Polygon or multipolygon from Regions computation
+    n_fibers : group of Fiber contained in the Regions 
 
-    :return shapes: list of shape
+    Returns
+    ----------
+    shapes: list of shape
     """
 
     #------------------------------
